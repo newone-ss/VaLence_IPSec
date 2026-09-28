@@ -30,6 +30,9 @@ dependencies = [
 [tool.setuptools.packages.find]
 include = ["tunneltwin*"]
 
+[tool.setuptools.package-data]
+"tunneltwin.rules.packs" = ["*.yaml"]
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",

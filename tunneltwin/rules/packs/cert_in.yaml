@@ -1,0 +1,100 @@
+# ─────────────────────────────────────────────────────────────────────
+#  CERT-In Advisory Pack
+#
+#  ⚠️  STATUS: PENDING CONFIRMATION OF SOURCE DOCUMENT
+#
+#  These rules are based on general Indian government cybersecurity
+#  advisory principles and common recommendations from CERT-In
+#  (Indian Computer Emergency Response Team) guidelines for
+#  securing VPN infrastructure.
+#
+#  The exact CERT-In advisory document number covering IPsec-specific
+#  cipher suite requirements has not been independently verified.
+#  Citations are marked as "[CERT-In, pending verification]" and
+#  should be updated once the authoritative source document is
+#  confirmed.
+# ─────────────────────────────────────────────────────────────────────
+pack_name: "CERT-In Advisory (Pending Confirmation)"
+
+rules:
+  # ── Protocol Version ──────────────────────────────────────────────
+  - id: "CERTIN-001"
+    name: "IKEv1 Not Recommended"
+    category: "protocol_version"
+    description: >
+      IKEv1 lacks modern security features including cookie-based DoS
+      protection and EAP authentication. Migration to IKEv2 is
+      recommended for all government and critical infrastructure
+      deployments.
+    required_facts:
+      - "ike_version"
+    condition:
+      type: "not_equals"
+      field: "ike_version"
+      values: ["IKEv1"]
+    severity: 6
+    citation: "CERT-In Advisory [pending confirmation of source document]"
+    remediation_template_id: "REM-PROTO-001"
+
+  # ── Key Exchange ──────────────────────────────────────────────────
+  - id: "CERTIN-002"
+    name: "Weak DH Groups Not Permitted"
+    category: "key_exchange"
+    description: >
+      DH groups below 2048 bits are considered inadequate for protecting
+      sensitive government communications. Minimum MODP-2048 or ECP-256
+      is required.
+    required_facts:
+      - "accepted_dh_group"
+    condition:
+      type: "not_in"
+      field: "accepted_dh_group"
+      values:
+        - "MODP-768"
+        - "MODP-1024"
+        - "MODP-1536"
+    severity: 7
+    citation: "CERT-In Advisory [pending confirmation of source document]"
+    remediation_template_id: "REM-DH-001"
+
+  # ── Encryption ────────────────────────────────────────────────────
+  - id: "CERTIN-003"
+    name: "Legacy Ciphers Prohibited"
+    category: "encryption"
+    description: >
+      DES and 3DES are prohibited for government data protection.
+      AES-128 or AES-256 in approved modes (CBC, GCM, CTR) must be
+      used for all VPN tunnels.
+    required_facts:
+      - "cipher"
+    condition:
+      type: "not_in"
+      field: "cipher"
+      values:
+        - "DES"
+        - "DES-CBC"
+        - "3DES"
+        - "3DES-CBC"
+    severity: 8
+    citation: "CERT-In Advisory [pending confirmation of source document]"
+    remediation_template_id: "REM-ENCR-001"
+
+  # ── Integrity ─────────────────────────────────────────────────────
+  - id: "CERTIN-004"
+    name: "MD5 Integrity Prohibited"
+    category: "integrity"
+    description: >
+      MD5 has known collision vulnerabilities and must not be used
+      for integrity verification in IPsec deployments. SHA-256 or
+      higher is required.
+    required_facts:
+      - "integrity"
+    condition:
+      type: "not_in"
+      field: "integrity"
+      values:
+        - "MD5"
+        - "HMAC-MD5-96"
+    severity: 7
+    citation: "CERT-In Advisory [pending confirmation of source document]"
+    remediation_template_id: "REM-INTEG-001"
