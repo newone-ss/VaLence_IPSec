@@ -31,7 +31,7 @@ Before any change is counted as "done", run and verify the following commands:
   ```bash
   pytest -v tests/ -k "not phase0"
   ```
-  *Expected Output*: `6 passed, 1 deselected in ...s` (Exit code 0)
+  *Expected Output*: `72 passed, 2 deselected in ...s` (Exit code 0)
 
 - [ ] **5. Lab Network Namespace Matrix (If lab/netns modified)**:
   ```bash
