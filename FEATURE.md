@@ -118,6 +118,8 @@
   - Cookie and Invalid KE response parsing
   - Malformed packet error handling
 - All 17 tests passed with zero failures.
+- Generated RFC 5903 compliant elliptic curve public points for ECP-256, ECP-384, ECP-521, and X25519 (raw uncompressed X || Y coordinates) to ensure strongSwan `libstrongswan-openssl.so` point validation succeeds.
+- Enforced RFC 7296 §3.3 & RFC 5282 §4.2 rule that AEAD ciphers (e.g. AES-GCM) MUST NOT include Transform Type 3 (INTEG).
 
 ---
 
@@ -127,13 +129,33 @@
 - Implement double-barrier target allowlisting (IP/CIDR matching AND explicit `consent_verified=True` flag) per ADR-0003.
 - Build asynchronous UDP client with exponential backoff, jitter, RFC 7296 cookie retry, and rate limiting.
 - Tag all scan results with strict `OBSERVED` provenance.
+- Support elimination scan: parallel DH group discovery, INVALID_KE_PAYLOAD preferred group recording, transform elimination until NO_PROPOSAL_CHOSEN.
+- Fulfill Phase 1 Exit Criteria: scan 4 Phase-0 profiles plus 1 cookie-enforcing profile in live Linux network namespaces.
 
 ### 2. Implementation Approach
 - Authored `tunneltwin/probe/allowlist.py` (`TargetAllowlist` with subnet containment and ownership tracking).
 - Authored `tunneltwin/probe/result.py` (`GatewayScanResult`, `AcceptedTransform`, `IKEv1AcceptedTransform`, and `ScanStatus`).
-- Authored `tunneltwin/probe/scanner.py` (`scan_gateway`, `_probe_ikev2_elimination`, `_probe_ikev1_elimination`).
+- Authored `tunneltwin/probe/scanner.py` (`scan_gateway`, `_ikev2_discover_dh_groups`, `_ikev2_elimination_scan`, `_ikev1_scan`).
+- Authored `lab/configs/cookie/{left.conf, right.conf}` and configured strongSwan `dos_protection = yes`, `cookie_threshold = 1`, `cookie_threshold_ip = 1` in `lab/start_charon.sh`.
+- Authored `lab/run_phase1_scan.py` and `tests/test_phase1_matrix.py` to automate live netns execution.
 
 ### 3. Verification Log
-- 11 unit tests for allowlist enforcement in `tests/test_probe_allowlist.py` (explicit consent, unverified IP, CIDR boundaries).
-- 10 unit tests for scanner logic in `tests/test_probe_scanner.py` (unauthorized target blocking, retry backoff calculation, duration tracking).
-- Total probe engine verification: 21 tests passed cleanly.
+- 11 unit tests for allowlist enforcement in `tests/test_probe_allowlist.py`.
+- 10 unit tests for scanner logic in `tests/test_probe_scanner.py`.
+- **Phase 1 Live Namespace Integration Scan (Empirical Output)**:
+  ```text
+  ================================================================================
+                      PHASE 1 LIVE SCAN SUMMARY REPORT
+  ================================================================================
+  Profile      | IKE Ver  | Accepted DH            | Cookie   | Duration   | Status
+  --------------------------------------------------------------------------------
+  weak         | IKEv1    | (IKEv1)                | no       | 350.5ms    | PASS ✅
+  mixed        | IKEv2    | MODP-1024              | no       | 291.1ms    | PASS ✅
+  strong       | IKEv2    | ECP-384                | no       | 329.7ms    | PASS ✅
+  legacy-cbc   | IKEv2    | MODP-2048              | no       | 303.4ms    | PASS ✅
+  cookie       | IKEv2    | ECP-384                | YES ✅    | 692.5ms    | PASS ✅
+  ================================================================================
+
+  🎉 PHASE 1 EXIT CRITERIA MET: ALL 5 GATEWAYS VERIFIED ESTABLISHED AND REPORTED!
+  ```
+- Automated integration test `tests/test_phase1_matrix.py` verified passing in WSL2.
