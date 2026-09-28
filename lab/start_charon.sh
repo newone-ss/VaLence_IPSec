@@ -8,14 +8,22 @@
 
 set -euo pipefail
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <namespace (e.g. ns-left or ns-right)>" >&2
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+    echo "Usage: $0 <namespace (e.g. ns-left or ns-right)> [cookie]" >&2
     exit 1
 fi
 
 NS="$1"
+COOKIE_MODE="${2:-}"
 RUN_DIR="/tmp/tunneltwin/${NS}"
 mkdir -p "${RUN_DIR}"
+
+COOKIE_SETTINGS=""
+if [ "${COOKIE_MODE}" = "cookie" ]; then
+    COOKIE_SETTINGS="    dos_protection = yes
+    cookie_threshold = 1
+    cookie_threshold_ip = 1"
+fi
 
 # 1. Generate isolated strongswan.conf for this specific namespace
 cat << EOF > "${RUN_DIR}/strongswan.conf"
@@ -29,6 +37,7 @@ charon {
             flush_line = yes
         }
     }
+${COOKIE_SETTINGS}
     plugins {
         include /etc/strongswan.d/charon/*.conf
         vici {
