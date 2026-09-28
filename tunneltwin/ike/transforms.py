@@ -112,12 +112,9 @@ class IKEv2ProposalSpec:
         # PRF
         transforms.append((TransformType.PRF, self.prf, None))
 
-        # Integrity (skip for AEAD)
-        if self.integrity is not None:
+        # Integrity (MUST NOT be present for AEAD ciphers: RFC 7296 §3.3, RFC 5282 §4.2)
+        if self.integrity is not None and self.integrity != IntegrityAlgorithmID.AUTH_NONE:
             transforms.append((TransformType.INTEG, self.integrity, None))
-        else:
-            # AEAD ciphers: set integrity to NONE
-            transforms.append((TransformType.INTEG, IntegrityAlgorithmID.AUTH_NONE, None))
 
         # DH Group
         transforms.append((TransformType.DH, self.dh_group, None))
@@ -162,26 +159,67 @@ def generate_ikev2_full_proposal_set(dh_group: int) -> list[list[tuple[int, int,
     return proposals
 
 
-def generate_ikev2_dh_group_proposals() -> list[list[tuple[int, int, int | None]]]:
+def generate_ikev2_dh_group_proposals(dh_group: int | None = None) -> list[list[tuple[int, int, int | None]]]:
     """
-    Generate one minimal proposal per DH group to discover which groups the
+    Generate diverse proposals per DH group to discover which groups the
     responder accepts.
 
-    Uses AES-256-CBC + SHA2-256 + PRF-SHA2-256 as a sensible default —
-    widely accepted by most implementations.  The actual cipher doesn't
-    matter for DH group discovery because INVALID_KE_PAYLOAD is returned
-    before cipher negotiation is evaluated.
+    Proposals cover:
+      1. AEAD: AES-256-GCM + PRF-SHA384 (strong profile)
+      2. AEAD: AES-128-GCM + PRF-SHA256
+      3. Non-AEAD: AES-256-CBC + SHA2-256 + PRF-SHA2-256 (mixed profile)
+      4. Non-AEAD: AES-128-CBC + SHA1 + PRF-SHA1 (legacy-cbc profile)
+      5. Non-AEAD: 3DES-CBC + SHA1 + PRF-SHA1 (legacy fallback)
     """
+    groups = [dh_group] if dh_group is not None else IKEV2_DH_GROUPS
     proposals: list[list[tuple[int, int, int | None]]] = []
 
-    for dh_group in IKEV2_DH_GROUPS:
-        spec = IKEv2ProposalSpec(
-            encryption=(EncryptionAlgorithm.ENCR_AES_CBC, 256),
-            prf=PRFAlgorithm.PRF_HMAC_SHA2_256,
-            integrity=IntegrityAlgorithmID.AUTH_HMAC_SHA2_256_128,
-            dh_group=dh_group,
+    for grp in groups:
+        # 1. AES-256-GCM (modern / strong)
+        proposals.append(
+            IKEv2ProposalSpec(
+                encryption=(EncryptionAlgorithm.ENCR_AES_GCM_16, 256),
+                prf=PRFAlgorithm.PRF_HMAC_SHA2_384,
+                integrity=None,
+                dh_group=grp,
+            ).to_transforms()
         )
-        proposals.append(spec.to_transforms())
+        # 2. AES-128-GCM
+        proposals.append(
+            IKEv2ProposalSpec(
+                encryption=(EncryptionAlgorithm.ENCR_AES_GCM_16, 128),
+                prf=PRFAlgorithm.PRF_HMAC_SHA2_256,
+                integrity=None,
+                dh_group=grp,
+            ).to_transforms()
+        )
+        # 3. AES-256-CBC (standard enterprise / mixed)
+        proposals.append(
+            IKEv2ProposalSpec(
+                encryption=(EncryptionAlgorithm.ENCR_AES_CBC, 256),
+                prf=PRFAlgorithm.PRF_HMAC_SHA2_256,
+                integrity=IntegrityAlgorithmID.AUTH_HMAC_SHA2_256_128,
+                dh_group=grp,
+            ).to_transforms()
+        )
+        # 4. AES-128-CBC + SHA1 (legacy-cbc)
+        proposals.append(
+            IKEv2ProposalSpec(
+                encryption=(EncryptionAlgorithm.ENCR_AES_CBC, 128),
+                prf=PRFAlgorithm.PRF_HMAC_SHA1,
+                integrity=IntegrityAlgorithmID.AUTH_HMAC_SHA1_96,
+                dh_group=grp,
+            ).to_transforms()
+        )
+        # 5. 3DES-CBC (legacy fallback)
+        proposals.append(
+            IKEv2ProposalSpec(
+                encryption=(EncryptionAlgorithm.ENCR_3DES, None),
+                prf=PRFAlgorithm.PRF_HMAC_SHA1,
+                integrity=IntegrityAlgorithmID.AUTH_HMAC_SHA1_96,
+                dh_group=grp,
+            ).to_transforms()
+        )
 
     return proposals
 

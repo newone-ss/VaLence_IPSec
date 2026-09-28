@@ -60,6 +60,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S603", "S607"]
+"lab/**" = ["S108", "S603", "S607", "E402", "T201"]
 
 # ── Bandit (security) ─────────────────────────────────────
 [tool.bandit]

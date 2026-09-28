@@ -35,6 +35,7 @@ from tunneltwin.ike.constants import (
     ISAKMP_PROTO_ISAKMP,
     ISAKMP_SIT_IDENTITY,
     NON_ESP_MARKER,
+    DHGroup,
     ExchangeType,
     IKEFlag,
     IKEv1AuthMethod,
@@ -242,18 +243,48 @@ def build_sa_payload(
     return header + proposals_data
 
 
+def generate_ke_data_for_group(dh_group: int) -> bytes:
+    """
+    Generate RFC-compliant Key Exchange data for a DH group (RFC 7296 §3.4, RFC 5903 §3).
+
+    For NIST elliptic curves (ECP-256, ECP-384, ECP-521), generates a point on the curve
+    in raw uncompressed format (X || Y) without the 0x04 prefix byte as required by strongSwan.
+    """
+    try:
+        from cryptography.hazmat.primitives.asymmetric import ec, x25519
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+        if dh_group == DHGroup.ECP_256:
+            key = ec.generate_private_key(ec.SECP256R1())
+            return key.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)[1:]
+        elif dh_group == DHGroup.ECP_384:
+            key = ec.generate_private_key(ec.SECP384R1())
+            return key.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)[1:]
+        elif dh_group == DHGroup.ECP_521:
+            key = ec.generate_private_key(ec.SECP521R1())
+            return key.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)[1:]
+        elif dh_group == DHGroup.CURVE_25519:
+            key_x = x25519.X25519PrivateKey.generate()
+            return key_x.public_key().public_bytes_raw()
+    except (ImportError, ValueError, TypeError):
+        pass
+
+    ke_size = DH_GROUP_KE_SIZES.get(dh_group, 256)
+    return os.urandom(ke_size)
+
+
 def build_ke_payload(
     dh_group: int,
     next_payload: int = PayloadType.NONE,
+    ke_data: bytes | None = None,
 ) -> bytes:
     """
-    Build a KE payload with random key exchange data (RFC 7296 §3.4).
+    Build a KE payload with valid key exchange data (RFC 7296 §3.4).
 
-    Uses the correct byte length for the specified DH group.
-    For probing purposes, the actual KE data is random (we never complete the handshake).
+    Uses the correct byte length and valid curve points for the specified DH group.
     """
-    ke_size = DH_GROUP_KE_SIZES.get(dh_group, 256)
-    ke_data = os.urandom(ke_size)
+    if ke_data is None:
+        ke_data = generate_ke_data_for_group(dh_group)
 
     # KE header: next_payload(1) + critical(1) + length(2) + dh_group(2) + reserved(2)
     payload_length = 4 + 4 + len(ke_data)  # generic header + KE-specific header + data

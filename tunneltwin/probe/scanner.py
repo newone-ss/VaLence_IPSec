@@ -219,10 +219,8 @@ async def _ikev2_discover_dh_groups(
     for dh_group in IKEV2_DH_GROUPS:
         group_name = DH_GROUP_NAMES.get(dh_group, f"DH-{dh_group}")
 
-        # Build a simple proposal with this DH group
-        proposals = generate_ikev2_dh_group_proposals()
-        # Filter to only the current DH group
-        single_proposal = [p for p in proposals if any(t[0] == TransformType.DH and t[1] == dh_group for t in p)]
+        # Build diverse proposals with this DH group covering AEAD, CBC, and legacy ciphers
+        single_proposal = generate_ikev2_dh_group_proposals(dh_group=dh_group)
         if not single_proposal:
             continue
 
@@ -281,6 +279,7 @@ async def _ikev2_discover_dh_groups(
         if msg.has_notify(NotifyType.NO_PROPOSAL_CHOSEN):
             result.add_rejected_dh_group(group_name, "NO_PROPOSAL_CHOSEN")
         elif msg.has_notify(NotifyType.INVALID_KE_PAYLOAD):
+            result.mark_observed_ike_version("IKEv2")
             preferred = msg.get_invalid_ke_group()
             preferred_name = DH_GROUP_NAMES.get(preferred, f"DH-{preferred}") if preferred else "unknown"
             result.add_rejected_dh_group(
@@ -443,9 +442,9 @@ async def _ikev1_scan(
     excluded_encr: set[tuple[int, int | None]] = set()
     excluded_hash: set[int] = set()
     excluded_dh: set[int] = set()
+    batch_size = 30
     max_iterations = 15
-
-    for iteration in range(max_iterations):
+    for _iteration in range(max_iterations):
         transform_specs = generate_ikev1_full_transform_set(
             exclude_encr=excluded_encr,
             exclude_hash=excluded_hash,
@@ -455,64 +454,71 @@ async def _ikev1_scan(
         if not transform_specs:
             break
 
-        # IKEv1 SA payload can hold many transforms; batch to ~30
-        batch = transform_specs[:30]
+        found_in_iteration = False
 
-        packet = build_ikev1_main_mode_request(batch)
-        result.probe_count += 1
+        for batch_start in range(0, len(transform_specs), batch_size):
+            batch = transform_specs[batch_start : batch_start + batch_size]
 
-        response_data = await _send_probe(protocol, packet, target_ip, target_port, config)
+            packet = build_ikev1_main_mode_request(batch)
+            result.probe_count += 1
 
-        if response_data is None:
-            logger.debug("IKEv1 scan: no response at iteration %d", iteration)
+            response_data = await _send_probe(protocol, packet, target_ip, target_port, config)
+
+            if response_data is None:
+                continue
+
+            try:
+                msg = parse_ike_message(response_data)
+            except IKEParseError:
+                continue
+
+            if msg.is_ikev1 and not result.ike_version_detected.is_known():
+                result.mark_observed_ike_version("IKEv1")
+
+            # Check for accepted proposal
+            if msg.ikev1_proposals:
+                if result.ike_version_detected.is_known() and result.ike_version_detected.value == "IKEv2":
+                    result.mark_observed_ike_version("IKEv1/IKEv2")
+                else:
+                    result.mark_observed_ike_version("IKEv1")
+                found_in_iteration = True
+                for prop in msg.ikev1_proposals:
+                    for tf in prop.transforms:
+                        encr = tf.attributes.get(IKEV1_ATTR_ENCRYPTION, 0)
+                        hash_alg = tf.attributes.get(IKEV1_ATTR_HASH, 0)
+                        auth = tf.attributes.get(IKEV1_ATTR_AUTH_METHOD, 0)
+                        dh = tf.attributes.get(IKEV1_ATTR_GROUP_DESC, 0)
+                        key_len = tf.attributes.get(IKEV1_ATTR_KEY_LENGTH)
+
+                        accepted = IKEv1AcceptedTransform(
+                            encryption=encr,
+                            hash_alg=hash_alg,
+                            auth_method=auth,
+                            dh_group=dh,
+                            key_length=key_len,
+                        )
+
+                        if not any(
+                            a.encryption == accepted.encryption
+                            and a.hash_alg == accepted.hash_alg
+                            and a.dh_group == accepted.dh_group
+                            and a.key_length == accepted.key_length
+                            for a in result.ikev1_accepted
+                        ):
+                            result.ikev1_accepted.append(accepted)
+
+                        # Exclude the accepted combination for next iteration
+                        excluded_encr.add((encr, key_len))
+                        excluded_dh.add(dh)
+
+                await _rate_limit_delay(config)
+                break  # Advance to next iteration with exclusions
+
+            await _rate_limit_delay(config)
+
+        if not found_in_iteration:
+            # None of the batches were accepted in this pass
             break
-
-        try:
-            msg = parse_ike_message(response_data)
-        except IKEParseError:
-            break
-
-        if not msg.is_ikev1:
-            logger.debug("IKEv1 scan: got non-IKEv1 response")
-            break
-
-        # Check for accepted proposal
-        if msg.ikev1_proposals:
-            result.mark_observed_ike_version("IKEv1")
-
-            for prop in msg.ikev1_proposals:
-                for tf in prop.transforms:
-                    encr = tf.attributes.get(IKEV1_ATTR_ENCRYPTION, 0)
-                    hash_alg = tf.attributes.get(IKEV1_ATTR_HASH, 0)
-                    auth = tf.attributes.get(IKEV1_ATTR_AUTH_METHOD, 0)
-                    dh = tf.attributes.get(IKEV1_ATTR_GROUP_DESC, 0)
-                    key_len = tf.attributes.get(IKEV1_ATTR_KEY_LENGTH)
-
-                    accepted = IKEv1AcceptedTransform(
-                        encryption=encr,
-                        hash_alg=hash_alg,
-                        auth_method=auth,
-                        dh_group=dh,
-                        key_length=key_len,
-                    )
-
-                    if not any(
-                        a.encryption == accepted.encryption
-                        and a.hash_alg == accepted.hash_alg
-                        and a.dh_group == accepted.dh_group
-                        and a.key_length == accepted.key_length
-                        for a in result.ikev1_accepted
-                    ):
-                        result.ikev1_accepted.append(accepted)
-
-                    # Exclude the accepted combination for next iteration
-                    excluded_encr.add((encr, key_len))
-        else:
-            # No proposal in response — responder rejected everything
-            logger.debug("IKEv1 scan: no proposals in response at iteration %d", iteration)
-            break
-
-        await _rate_limit_delay(config)
 
 
 # ═══════════════════════════════════════════════════════════════════════
