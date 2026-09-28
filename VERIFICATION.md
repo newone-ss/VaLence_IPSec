@@ -284,7 +284,7 @@ Before any pull request or phase handover is certified, verify each negative con
 | **Phase 0** | Testbed & Scaffolding | `sudo bash lab/run_matrix.sh` | `PHASE 0 EXIT CRITERIA MET: 4/4 PROFILES VERIFIED ESTABLISHED!` | **PASSED** |
 | **Phase 1** | Probe Engine Core | `python lab/run_phase1_scan.py` / `pytest tests/test_phase1_matrix.py` | 5/5 gateways scanned; cookie retry, elimination, and observed provenance verified | **PASSED** |
 | **Phase 2** | Rule Engine & Evidence Model | `pytest tests/test_rules_engine.py -v` | Distinct scores across 4 profiles; at least 1 cited finding per profile; CANNOT_ASSESS invariant | **PASSED** |
-| **Phase 3** | Automated Remediation & Diff Generator | `pytest tests/test_remediation.py -v` | Unified diffs generated and round-trip validated with parsers | PENDING |
+| **Phase 3** | Automated Remediation & Twin Check | `python lab/run_phase3_twin.py` / `pytest tests/test_phase3_matrix.py` | Baseline findings reproduced -> config remediated -> tunnel verified on real output -> re-scan confirms findings cleared | **PASSED** |
 | **Phase 4** | Passive PCAP/Live Capture Analyzer | `pytest tests/test_capture.py -v` | Live/file PCAP parsed; weak crypto & SPI mismatches flagged | PENDING |
 | **Phase 5** | ML Inference Engine & Confidence Tagging | `pytest tests/test_ml.py -v` | Confidence scores $\in [0.0, 1.0]$ with reasoning strings | PENDING |
 | **Phase 6** | Cryptographic Seal & Integrity Verification | `pytest tests/test_seal.py -v` | Merkle tree root hash reproducible; receipts verify | PENDING |

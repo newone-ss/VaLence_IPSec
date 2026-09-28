@@ -16,6 +16,9 @@
 | **FEAT-006** | Fact Model, Provenance Tracking, and Probe Scan Bridge | Phase 2 | **COMPLETED** | Verified (PASS) |
 | **FEAT-007** | Standards-Based Rule Packs (NIST SP 800-77r1, NSA CNSA 2.0, CERT-In) | Phase 2 | **COMPLETED** | Verified (PASS) |
 | **FEAT-008** | Declarative Rule Engine and Multi-Category Scoring Engine | Phase 2 | **COMPLETED** | Verified (PASS) |
+| **FEAT-009** | strongSwan swanctl.conf Remediation Generator & Unified Diff | Phase 3 | **COMPLETED** | Verified (PASS) |
+| **FEAT-010** | Cisco ASA Configuration Generator with Mandatory Verification Label | Phase 3 | **COMPLETED** | Verified (PASS) |
+| **FEAT-011** | Live Twin Check & Remediation Proof Engine | Phase 3 | **COMPLETED** | Verified (PASS) |
 
 
 ---
@@ -238,4 +241,72 @@
   strong      : score= 99, coverage= 76.5%, findings= 1 (NIST-009 DoS Cookie Protection)
   ```
 - All 4 scores strictly distinct (`weak < legacy-cbc < mixed < strong`), all 4 profiles carry cited findings, and all quality gates pass on GitHub CI.
+
+---
+
+## FEAT-009: strongSwan swanctl.conf Remediation Generator & Unified Diff
+
+### 1. Scope & Objectives
+- Generate valid, hardened strongSwan `swanctl.conf` configurations for target compliance profiles (`aes256gcm-baseline`, `nist-sp800-77r1`, `cnsa-suite`).
+- Support initiator (left), responder (right), and paired configuration synthesis.
+- Produce clean unified diffs comparing insecure baseline configurations against remediated configurations.
+
+### 2. Implementation Approach
+- Authored `tunneltwin/fix/models.py` (`SecurityProfile`, `RemediationConfig`, `generate_unified_diff`).
+- Authored `tunneltwin/fix/profiles.py` defining standard profiles with IKEv2, AES-GCM-256, PRF-SHA384/256, ECP-384/256.
+- Authored `tunneltwin/fix/swanctl_generator.py` (`generate_swanctl_conf`, `generate_swanctl_pair`).
+
+### 3. Verification Log
+- 3 unit tests in `tests/test_fix_generators.py::TestSwanctlGenerator` verifying content, pair generation, and unified diff output.
+
+---
+
+## FEAT-010: Cisco ASA Configuration Generator with Mandatory Verification Label
+
+### 1. Scope & Objectives
+- Synthesize Cisco ASA IKEv2 / IPsec site-to-site VPN configurations adhering to the same cryptographic compliance profile.
+- **Mandatory Non-Functional Constraint**: Output MUST be labeled `"generated, not lab-verified"` everywhere it is displayed, formatted, or serialized.
+
+### 2. Implementation Approach
+- Authored `tunneltwin/fix/cisco_generator.py` (`generate_cisco_asa_config`).
+- Enforced `CISCO_ASA_VERIFICATION_LABEL = "generated, not lab-verified"` in `content`, `verification_status`, `__str__`, `__repr__`, and `display()`.
+
+### 3. Verification Log
+- 2 unit tests in `tests/test_fix_generators.py::TestCiscoASAGenerator` asserting the label is present across all representation vectors and validating Cisco ASA IKEv2 policy, proposal, crypto map, and tunnel-group syntax.
+
+---
+
+## FEAT-011: Live Twin Check & Remediation Proof Engine
+
+### 1. Scope & Objectives
+- Implement the end-to-end Twin Check proof chain on live Linux network namespaces without mocked data:
+  1. Old weak configuration applied in lab $\implies$ weak baseline tunnel establishes $\implies$ active scan confirms findings (`NIST-001`, `NIST-004`).
+  2. Remediated configuration applied $\implies$ twin confirms tunnel still works on both peers $\implies$ ICMP ping passes across tunnel.
+  3. Re-scan confirms baseline findings cleared and posture score improves from 0 to 99/100.
+  4. Remediated tunnel re-established.
+
+### 2. Implementation Approach
+- Authored `tunneltwin/fix/twin.py` (`TwinVerifier`, `TwinCheckResult`).
+- Authored `lab/run_phase3_twin.py` and `lab/run_phase3_twin.sh` for non-mocked live netns execution.
+- Authored integration test `tests/test_phase3_matrix.py`.
+
+### 3. Verification Log
+- **Live Netns Proof Execution (`python3 lab/run_phase3_twin.py`)**:
+  ```text
+  ================================================================================
+          PHASE 3 EXIT CRITERIA EVALUATION (LIVE, NON-MOCKED EVIDENCE)
+  ================================================================================
+    [PASS] Baseline findings reproduced: NIST-001, NIST-004
+    [PASS] Weak baseline tunnel established (old config applied in lab)
+    [PASS] Remediated tunnel establishes on both peers
+    [PASS] Data-plane ping passes through remediated tunnel
+    [PASS] Findings cleared on re-scan: NIST-001, NIST-004
+    [PASS] Remediated tunnel re-establishes after re-scan
+    [PASS] TwinCheckResult.passed
+  ================================================================================
+  PHASE 3 EXIT CRITERIA MET: weak finding present -> config remediated ->
+  tunnel verified on real output -> re-scan confirms the finding cleared.
+  ```
+- Pytest integration test `tests/test_phase3_matrix.py` PASSED in WSL2.
+
 
