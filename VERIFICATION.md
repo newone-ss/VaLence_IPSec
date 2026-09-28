@@ -279,18 +279,17 @@ Before any pull request or phase handover is certified, verify each negative con
 
 ## 4. Phase Exit Gates Summary
 
-| Phase | Core Objective | Concrete Exit Verification Command | Required Pass State |
-|---|---|---|---|
-| **Phase 0** | Testbed & Scaffolding | `sudo bash lab/run_matrix.sh` | `PHASE 0 EXIT CRITERIA MET: 4/4 PROFILES VERIFIED ESTABLISHED!` |
-| **Phase 1** | Config Parsers | `pytest tests/test_parsers.py -v` | Cisco, strongSwan, FortiOS parsed into normalized schema with `parsed` tag |
-| **Phase 2** | Active Prober | `pytest tests/test_prober.py -v` | Non-intrusive proposal probe response parsed into `observed` tags; consent denied stops execution |
-| **Phase 3** | Compliance Engine | `pytest tests/test_rules.py -v` | NIST/ANSSI/RFC rules pass/fail/cannot-assess verified |
-| **Phase 4** | Remediation Generator | `pytest tests/test_remediation.py -v` | Unified diffs generated and round-trip validated |
-| **Phase 5** | PCAP Analyzer | `pytest tests/test_capture.py -v` | Live/file PCAP parsed; weak crypto & SPI mismatches flagged |
-| **Phase 6** | ML Heuristics | `pytest tests/test_ml.py -v` | Confidence scores $\in [0.0, 1.0]$ with reasoning strings |
-| **Phase 7** | Cryptographic Seal | `pytest tests/test_seal.py -v` | Merkle tree root hash reproducible; receipts verify |
-| **Phase 8** | API, CLI & UI | `pytest tests/test_api.py -v` & UI smoke | API endpoints return 200; Web UI renders without console errors |
-| **Phase 9** | E2E Demonstration | `pytest tests/ -v && sudo bash lab/run_matrix.sh` | 100% test pass rate across all modules |
+| Phase | Core Objective | Concrete Exit Verification Command | Required Pass State | Status |
+|---|---|---|---|---|
+| **Phase 0** | Testbed & Scaffolding | `sudo bash lab/run_matrix.sh` | `PHASE 0 EXIT CRITERIA MET: 4/4 PROFILES VERIFIED ESTABLISHED!` | **PASSED** |
+| **Phase 1** | Probe Engine Core | `python lab/run_phase1_scan.py` / `pytest tests/test_phase1_matrix.py` | 5/5 gateways scanned; cookie retry, elimination, and observed provenance verified | **PASSED** |
+| **Phase 2** | Rule Engine & Evidence Model | `pytest tests/test_rules_engine.py -v` | Distinct scores across 4 profiles; at least 1 cited finding per profile; CANNOT_ASSESS invariant | **PASSED** |
+| **Phase 3** | Automated Remediation & Diff Generator | `pytest tests/test_remediation.py -v` | Unified diffs generated and round-trip validated with parsers | PENDING |
+| **Phase 4** | Passive PCAP/Live Capture Analyzer | `pytest tests/test_capture.py -v` | Live/file PCAP parsed; weak crypto & SPI mismatches flagged | PENDING |
+| **Phase 5** | ML Inference Engine & Confidence Tagging | `pytest tests/test_ml.py -v` | Confidence scores $\in [0.0, 1.0]$ with reasoning strings | PENDING |
+| **Phase 6** | Cryptographic Seal & Integrity Verification | `pytest tests/test_seal.py -v` | Merkle tree root hash reproducible; receipts verify | PENDING |
+| **Phase 7** | API, CLI, and Web Dashboard | `pytest tests/test_api.py -v` & UI smoke | API endpoints return 200; Web UI renders without console errors | PENDING |
+| **Phase 8** | End-to-End Evaluation & Demonstration | `pytest tests/ -v && sudo bash lab/run_matrix.sh` | 100% test pass rate across all modules | PENDING |
 
 ---
 

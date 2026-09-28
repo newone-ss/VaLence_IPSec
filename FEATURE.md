@@ -13,6 +13,10 @@
 | **FEAT-003** | Core Package Scaffolding & Provenance Data Model | Phase 0 | **COMPLETED** | Verified (PASS) |
 | **FEAT-004** | Pure-Python Binary IKEv1/IKEv2 Codec & Elimination Proposals | Phase 1 | **COMPLETED** | Verified (PASS) |
 | **FEAT-005** | Consent-Gated UDP Prober Engine with Elimination Scanning | Phase 1 | **COMPLETED** | Verified (PASS) |
+| **FEAT-006** | Fact Model, Provenance Tracking, and Probe Scan Bridge | Phase 2 | **COMPLETED** | Verified (PASS) |
+| **FEAT-007** | Standards-Based Rule Packs (NIST SP 800-77r1, NSA CNSA 2.0, CERT-In) | Phase 2 | **COMPLETED** | Verified (PASS) |
+| **FEAT-008** | Declarative Rule Engine and Multi-Category Scoring Engine | Phase 2 | **COMPLETED** | Verified (PASS) |
+
 
 ---
 
@@ -159,3 +163,79 @@
   🎉 PHASE 1 EXIT CRITERIA MET: ALL 5 GATEWAYS VERIFIED ESTABLISHED AND REPORTED!
   ```
 - Automated integration test `tests/test_phase1_matrix.py` verified passing in WSL2.
+
+---
+
+## FEAT-006: Fact Model, Provenance Tracking, and Probe Scan Bridge
+
+### 1. Scope & Objectives
+- Implement a typed Fact model where every cryptographic observation carries:
+  - `subject`: Gateway identifier (`<ip>:<port>`)
+  - `key`: Fact key (`ike_version`, `accepted_dh_group`, `cipher`, `integrity`, `prf`, `cookie_required`)
+  - `value`: Fact value string
+  - `provenance`: `OBSERVED`, `PARSED`, `INFERRED`, `UNKNOWN`
+  - `confidence`: $\in [0.0, 1.0]$ (mandatory 1.0 for OBSERVED/PARSED, bounded for INFERRED)
+  - `source_pointer`: Traceability back to the probe or configuration file
+- Build `scan_result_to_facts`: A lossless bridge converting Phase 1 `GatewayScanResult` into indexed `FactStore`.
+- Strict indexing: Multi-valued facts (multiple accepted DH groups, transforms) queryable by subject and key.
+
+### 2. Implementation Approach
+- Authored `tunneltwin/rules/facts.py` (`Fact`, `FactCategory`, `FactStore`, `scan_result_to_facts`).
+- Validated `INFERRED` facts reject confidence outside $[0.0, 1.0]$ via `ValueError`.
+- Added `is_known` property asserting `provenance != ProvenanceTag.UNKNOWN`.
+
+### 3. Verification Log
+- 7 unit tests in `tests/test_rules_engine.py::TestFactModel` verifying creation, confidence bounds, multi-values, and missing keys.
+- 3 bridge tests in `tests/test_rules_engine.py::TestBridge` verifying lossless extraction from simulated Phase 0 scan results.
+
+---
+
+## FEAT-007: Standards-Based Rule Packs (NIST SP 800-77r1, NSA CNSA 2.0, CERT-In)
+
+### 1. Scope & Objectives
+- Create modular YAML rule packs citing authoritative cryptographic standards:
+  - **NIST SP 800-77 Rev 1**: Protocol version, Diffie-Hellman groups, AES-GCM preference, 3DES deprecation, SHA-1 deprecation, AES-256 recommendation, DoS cookie protection (Section 4.3).
+  - **NSA CNSA 2.0 Suite**: Strict 192-bit security floor (IKEv2, ECP-384+, AES-256, SHA-384+).
+  - **CERT-In Advisory Pack**: Indian national cybersecurity guidelines; explicitly marked `"pending confirmation of source document"` with zero fabricated citations.
+- Include YAML files in wheel/sdist packaging via `pyproject.toml` `[tool.setuptools.package-data]`.
+
+### 2. Implementation Approach
+- Authored `tunneltwin/rules/packs/nist_sp800_77r1.yaml` (9 rules).
+- Authored `tunneltwin/rules/packs/nsa_cnsa.yaml` (4 rules).
+- Authored `tunneltwin/rules/packs/cert_in.yaml` (4 rules).
+- Updated `pyproject.toml` to package `tunneltwin.rules.packs/*.yaml`.
+
+### 3. Verification Log
+- 5 unit tests in `tests/test_rules_engine.py::TestRulePacks` verifying clean loading, required fields, and CERT-In pending citation disclaimer.
+- `python -m build` verified bundling YAML assets into `.whl` and `.tar.gz`.
+
+---
+
+## FEAT-008: Declarative Rule Engine and Multi-Category Scoring Engine
+
+### 1. Scope & Objectives
+- Declarative rule condition evaluation: `equals`, `not_equals`, `in`, `not_in`, `version_min`.
+- **`CANNOT_ASSESS` Invariant**: If any required fact is missing or `UNKNOWN`, the rule reports `AssessmentStatus.CANNOT_ASSESS`. It never generates a false PASS or false FAIL.
+- **Multi-Category Scoring Algorithm**:
+  - Starts at 100 points.
+  - Subtracts category-weighted penalties: `protocol_version` (2.0x), `key_exchange` (1.5x), `encryption` (1.5x), `integrity` (1.2x), `exposure` (1.0x).
+  - Floored at 0 points.
+  - Tracks assessed coverage percentage: $\frac{\text{PASS} + \text{FAIL}}{\text{Total Rules}} \times 100\%$.
+- **Exit Criteria**: The rule engine against the 4 Phase-0 profiles must produce distinct, correct scores and at least 1 finding per profile with the exact rule/clause cited.
+
+### 2. Implementation Approach
+- Authored `tunneltwin/rules/engine.py` (`Rule`, `RuleResult`, `RuleEngine`, `evaluate_rule`, `load_all_rule_packs`).
+- Authored `tunneltwin/rules/scoring.py` (`CategoryScore`, `GatewayScore`, `compute_score`, `ScoringEngine`).
+- Exposed public API in `tunneltwin/rules/__init__.py`.
+
+### 3. Verification Log
+- 13 unit tests across `TestRuleEvaluation`, `TestScoring`, and `TestCannotAssess` in `tests/test_rules_engine.py`.
+- **Empirical Scoring & Findings Verification**:
+  ```text
+  weak        : score=  0, coverage=100.0%, findings=12 (NIST-001, NIST-004, CNSA-001, CERTIN-001)
+  legacy-cbc  : score= 42, coverage=100.0%, findings= 8 (NIST-007, NIST-008, NIST-003, CNSA-003)
+  mixed       : score= 47, coverage=100.0%, findings= 6 (NIST-002, NIST-005, CNSA-002, CERTIN-002)
+  strong      : score= 99, coverage= 76.5%, findings= 1 (NIST-009 DoS Cookie Protection)
+  ```
+- All 4 scores strictly distinct (`weak < legacy-cbc < mixed < strong`), all 4 profiles carry cited findings, and all quality gates pass on GitHub CI.
+

@@ -6,9 +6,9 @@
 
 ## 1. Current Operational State
 
-- **Active Phase**: Phase 1 Complete — Ready for Phase 2 (Active IKE Prober Integration & Fleet Scanning)
+- **Active Phase**: Phase 2 Complete — Ready for Phase 3 (Automated Remediation & Diff Generator / Passive Capture)
 - **Target Deadline**: 29 September 2026
-- **Current Objective**: Phase 1 probe engine core is fully implemented and live-verified against all 5 network namespace profiles in WSL2 (100% pass across weak, mixed, strong, legacy-cbc, and anti-DoS cookie challenge). All 44 unit tests pass, automated test `tests/test_phase1_matrix.py` passes, and quality gates (ruff, mypy) are green.
+- **Current Objective**: Phase 2 rule engine and evidence model are fully implemented, verified with 28 comprehensive tests (72 total tests passing across project), and verified 100% GREEN on GitHub Actions CI. All Phase-0 profiles produce distinct scores and cited findings.
 - **Environment**: Host Windows 11 with WSL2 Ubuntu (`Ubuntu-26.04`), Linux Kernel 6.6.87.2-microsoft-standard-WSL2, full root privileges for netns and IPsec kernel operations.
 
 ---
@@ -19,7 +19,7 @@
   - `HANDOVER.md`: Living state and operational context.
   - `DECISIONS.md`: Architectural decision records (ADR-0001 through ADR-0007).
   - `FLOW.md`: Complete data and control flow mapping.
-  - `FEATURE.md`: Feature scoping and lifecycle tracking (FEAT-001 through FEAT-005 complete).
+  - `FEATURE.md`: Feature scoping and lifecycle tracking (FEAT-001 through FEAT-008 complete).
   - `BUG.md`: Bug discovery, diagnosis, and fix tracing (BUG-001 through BUG-004 resolved).
   - `VERIFICATION.md`: Concrete test checklist & verification protocol ("no vibe checks").
   - `ROLLBACK.md`: Safety net, fast rollback recipes, and baseline state restoration plan.
@@ -63,19 +63,32 @@
     - `strong`: IKEv2, ECP-384, AES-GCM-16-256 / PRF-SHA2-384, 329.7ms (PASS)
     - `legacy-cbc`: IKEv2, MODP-2048, AES-CBC-128 / SHA1 / PRF-SHA1, 303.4ms (PASS)
     - `cookie`: IKEv2, ECP-384, Cookie Needed: True (65 probes, 692.5ms) (PASS)
+- **Phase 2 — Rule Engine & Evidence Model & Exit Verification**:
+  - `tunneltwin/rules/facts.py`: Typed Fact model, FactStore with subject/key indexing, `scan_result_to_facts` bridge tagging all probe observations with `OBSERVED` provenance and $1.0$ confidence.
+  - `tunneltwin/rules/packs/nist_sp800_77r1.yaml`: 9 rules covering protocol version, DH groups, cipher modes, key lengths, integrity, and DoS cookie protection (NIST SP 800-77 Rev 1 & SP 800-131A Rev 2).
+  - `tunneltwin/rules/packs/nsa_cnsa.yaml`: 4 rules enforcing strict NSA CNSA 2.0 192-bit security floor (IKEv2, ECP-384+, AES-256, SHA-384+).
+  - `tunneltwin/rules/packs/cert_in.yaml`: 4 rules based on Indian national cybersecurity guidelines, explicitly marked `"pending confirmation of source document"` with zero fabricated citations.
+  - `tunneltwin/rules/engine.py`: Declarative rule condition evaluator with strict **`CANNOT_ASSESS`** guarantee on missing/unknown facts.
+  - `tunneltwin/rules/scoring.py`: Multi-category scoring algorithm (start 100, category penalties, floor 0, coverage tracking).
+  - `tests/test_rules_engine.py`: 28 unit tests passing (fact model, bridge, rule loading, profile evaluation, scoring, and cannot-assess invariants).
+  - **Empirical Profile Scores & Findings**:
+    - `weak`: Score **0**, 100.0% coverage, 12 findings (`NIST-001`, `NIST-004`, `CNSA-001`, `CERTIN-001`, etc.)
+    - `legacy-cbc`: Score **42**, 100.0% coverage, 8 findings (`NIST-007`, `NIST-008`, `NIST-003`, `CNSA-003`, etc.)
+    - `mixed`: Score **47**, 100.0% coverage, 6 findings (`NIST-002`, `NIST-005`, `CNSA-002`, `CERTIN-002`, etc.)
+    - `strong`: Score **99**, 76.5% coverage, 1 finding (`NIST-009` DoS Cookie Threshold)
 
 ---
 
 ## 3. What Is In Progress
 
-- Phase 1 exit criteria are 100% satisfied and verified.
-- Ready to proceed to Phase 2 (Active IKE Prober Integration, Fleet Scanning, Output to NormalizedConnection).
+- Phase 2 exit criteria are 100% satisfied and verified.
+- Ready to proceed to Phase 3 (Automated Remediation & Configuration Hardening Diff Generator / PCAP Analysis).
 
 ---
 
 ## 4. What Is Broken / Blocking
 
-- None. All test suites and lab runs are 100% green.
+- None. All test suites, build packages, and remote GitHub Actions CI workflows are 100% green.
 
 ---
 
@@ -101,13 +114,13 @@
 
 | Phase | Description | Exit Criteria | Status |
 |---|---|---|---|
-| **Phase 0** | Repo & Testbed Foundation | All 4 swanctl profiles establish tunnel across namespaces; verified by `swanctl --list-sas` on both sides with logs | **PASSED (4/4)** |
+| **Phase 0** | Repo & Testbed Foundation | All 4 swanctl profiles establish tunnel across namespaces; verified by `swanctl --list-sas` on both sides with logs | **PASSED (4/4 Profiles)** |
 | **Phase 1** | Probe Engine Core | Async UDP IKE scanner with elimination probing, cookie handling, consent-gated allowlist; 44/44 unit tests pass & 5/5 netns profiles verified | **PASSED (5/5 Live Gateways + 44/44 Tests)** |
-| **Phase 2** | Active IKE Prober (Consent-Gated) | Synthesize IKEv1/v2 SA proposals, probe endpoint in allowlist, map responses with `observed` provenance | PENDING |
-| **Phase 3** | Compliance & Vulnerability Engine | NIST SP 800-77r1, ANSSI, RFC 9395 rules; output `observed`/`parsed`/`unknown` tags; "cannot assess" on unknown | PENDING |
-| **Phase 4** | Automated Remediation & Diff Generator | Generate hardened configuration files and unified diffs; round-trip validation with parser | PENDING |
-| **Phase 5** | Passive PCAP/Live Capture Analyzer | Parse live IKE/ESP packets, detect SPI mismatches, unencrypted payloads, weak DH exchange | PENDING |
-| **Phase 6** | ML Inference Engine & Confidence Tagging | Infer missing params with confidence scores $\in [0.0, 1.0]$; tag facts as `inferred` | PENDING |
-| **Phase 7** | Cryptographic Seal & Integrity Verification | SHA-256 Merkle audit trail for every finding; cryptographic verification receipt | PENDING |
-| **Phase 8** | API, CLI, and Web Dashboard | Fast backend API, CLI command runner, dynamic dark-mode UI with visual topology | PENDING |
-| **Phase 9** | End-to-End Evaluation & Demonstration | Full automated test suite across all 4 lab profiles, compliance validation, remediation diffs, zero errors | PENDING |
+| **Phase 2** | Rule Engine & Evidence Model | Fact model with provenance, YAML rule packs (NIST, CNSA, CERT-In), CANNOT_ASSESS invariant, distinct scores & cited findings per profile; 28/28 tests pass | **PASSED (4/4 Distinct Scores & Cited Findings)** |
+| **Phase 3** | Automated Remediation & Diff Generator | Generate hardened configuration files and unified diffs; round-trip validation with parser | PENDING |
+| **Phase 4** | Passive PCAP/Live Capture Analyzer | Parse live IKE/ESP packets, detect SPI mismatches, unencrypted payloads, weak DH exchange | PENDING |
+| **Phase 5** | ML Inference Engine & Confidence Tagging | Infer missing params with confidence scores $\in [0.0, 1.0]$; tag facts as `inferred` | PENDING |
+| **Phase 6** | Cryptographic Seal & Integrity Verification | SHA-256 Merkle audit trail for every finding; cryptographic verification receipt | PENDING |
+| **Phase 7** | API, CLI, and Web Dashboard | Fast backend API, CLI command runner, dynamic dark-mode UI with visual topology | PENDING |
+| **Phase 8** | End-to-End Evaluation & Demonstration | Full automated test suite across all 4 lab profiles, compliance validation, remediation diffs, zero errors | PENDING |
+
