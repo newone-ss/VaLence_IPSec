@@ -6,9 +6,9 @@
 
 ## 1. Current Operational State
 
-- **Active Phase**: Phase 3 Complete — Ready for Phase 4 (Passive PCAP/Live Capture Analyzer)
+- **Active Phase**: Phase 4 Complete — Multi-Daemon Diversity (Libreswan) & Behavioral Fingerprinting
 - **Target Deadline**: 29 September 2026
-- **Current Objective**: Phase 3 remediation engines (strongSwan swanctl.conf generator, unified diff generator, Cisco ASA config generator with mandatory "generated, not lab-verified" labeling), and the live Twin-Check proof runner are fully implemented and verified. Real live netns proof verified: weak profile finding reproduced -> remediated config applied -> tunnel verified on both peers with ICMP ping -> re-scan confirmed findings cleared. All 85 tests passing across project (82 passed on Windows, 2 netns tests skipped on non-root; 85/85 passed in WSL2).
+- **Current Objective**: Phase 4 multi-daemon diversity (Libreswan in network namespaces side-by-side with strongSwan), behavioral daemon fingerprinting (RFC payload quirks over static assumptions), and cross-daemon remediation (Libreswan ipsec.conf generator, unified diff, live twin verification, and prober re-scan) are fully implemented and verified on real output. 101 tests total across project (97 passed on Windows, 4 netns tests skipped on non-root; 101/101 passed in WSL2).
 - **Environment**: Host Windows 11 with WSL2 Ubuntu (`Ubuntu-26.04`), Linux Kernel 6.6.87.2-microsoft-standard-WSL2, full root privileges for netns and IPsec kernel operations.
 
 ---
@@ -135,7 +135,8 @@
 | **Phase 1** | Probe Engine Core | Async UDP IKE scanner with elimination probing, cookie handling, consent-gated allowlist; 44/44 unit tests pass & 5/5 netns profiles verified | **PASSED (5/5 Live Gateways + 44/44 Tests)** |
 | **Phase 2** | Rule Engine & Evidence Model | Fact model with provenance, YAML rule packs (NIST, CNSA, CERT-In), CANNOT_ASSESS invariant, distinct scores & cited findings per profile; 28/28 tests pass | **PASSED (4/4 Distinct Scores & Cited Findings)** |
 | **Phase 3** | Automated Remediation & Diff Generator / Twin Check | swanctl.conf & Cisco ASA generators; twin check and re-scan clears weak findings on real output; 10/10 tests pass | **PASSED (Live Netns Twin Verified: weak finding -> remediated -> tunnel verified -> re-scan cleared)** |
-| **Phase 4** | Passive PCAP/Live Capture Analyzer | Parse live IKE/ESP packets, detect SPI mismatches, unencrypted payloads, weak DH exchange | PENDING |
+| **Phase 4** | Multi-Daemon Diversity & Behavioral Fingerprinting | Libreswan in netns; behavioral fingerprinting via payload quirks (0.95 conf); cross-daemon tunnel & re-scan verified; 16/16 tests pass | **PASSED (Live Netns Multi-Daemon Verified: scan -> fingerprint -> fix -> cross-daemon tunnel -> re-scan cleared)** |
+| **Phase 5** | Passive PCAP/Live Capture Analyzer | Parse live IKE/ESP packets, detect SPI mismatches, unencrypted payloads, weak DH exchange | PENDING |
 | **Phase 5** | ML Inference Engine & Confidence Tagging | Infer missing params with confidence scores $\in [0.0, 1.0]$; tag facts as `inferred` | PENDING |
 | **Phase 6** | Cryptographic Seal & Integrity Verification | SHA-256 Merkle audit trail for every finding; cryptographic verification receipt | PENDING |
 | **Phase 7** | API, CLI, and Web Dashboard | Fast backend API, CLI command runner, dynamic dark-mode UI with visual topology | PENDING |

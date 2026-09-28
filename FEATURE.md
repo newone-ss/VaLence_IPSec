@@ -19,6 +19,9 @@
 | **FEAT-009** | strongSwan swanctl.conf Remediation Generator & Unified Diff | Phase 3 | **COMPLETED** | Verified (PASS) |
 | **FEAT-010** | Cisco ASA Configuration Generator with Mandatory Verification Label | Phase 3 | **COMPLETED** | Verified (PASS) |
 | **FEAT-011** | Live Twin Check & Remediation Proof Engine | Phase 3 | **COMPLETED** | Verified (PASS) |
+| **FEAT-012** | Multi-Daemon Testbed Substrate (Libreswan in Network Namespaces) | Phase 4 | **COMPLETED** | Verified (PASS) |
+| **FEAT-013** | Behavioral Daemon Fingerprinting Engine (RFC Payload Quirks) | Phase 4 | **COMPLETED** | Verified (PASS) |
+| **FEAT-014** | Libreswan Remediation Generator & Cross-Daemon Interoperability Proof | Phase 4 | **COMPLETED** | Verified (PASS) |
 
 
 ---
@@ -308,5 +311,88 @@
   tunnel verified on real output -> re-scan confirms the finding cleared.
   ```
 - Pytest integration test `tests/test_phase3_matrix.py` PASSED in WSL2.
+
+
+---
+
+## FEAT-012: Multi-Daemon Testbed Substrate (Libreswan in Network Namespaces)
+
+### 1. Scope & Objectives
+- Deploy Libreswan (pluto daemon) alongside strongSwan (charon daemon) in independent Linux network namespaces.
+- Support simultaneous execution without packaging conflicts, library collisions, or socket path overlaps.
+- Provide automated lifecycle scripts (`lab/start_libreswan.sh`, `lab/stop_libreswan.sh`) with isolated NSS database (`cert9.db`), private runtime directory (`/tmp/tunneltwin/<ns>/run`), and whack control socket (`pluto.ctl`).
+
+### 2. Implementation Approach
+- Resolved Ubuntu/Debian packaging conflict by isolating Libreswan binaries in `/opt/libreswan` and symlinking `/usr/libexec/ipsec` and `/usr/local/sbin/ipsec` to allow both daemons to coexist concurrently.
+- Automated NSS certificate database initialization with `certutil -N` in headless empty-password mode.
+- Prevented pluto lock-file race conditions by permitting pluto to manage its own PID file in runtime directories.
+
+### 3. Verification Log
+- Pluto successfully spawned in `ns-libreswan` (`PID: 466`, socket `/tmp/tunneltwin/ns-libreswan/run/pluto.ctl`) while strongSwan ran in `ns-left`.
+- Clean teardown verified via `lab/stop_libreswan.sh` and XFRM policy flushing.
+
+
+---
+
+## FEAT-013: Behavioral Daemon Fingerprinting Engine (RFC Payload Quirks)
+
+### 1. Scope & Objectives
+- Detect responder daemon implementation (`strongswan`, `libreswan`, `cisco_asa`, `unknown`) purely through observable protocol behaviors, notification payload combinations, and RFC quirks rather than static assumptions or manual declarations.
+- Required confidence threshold $\ge 0.70$ (empirically achieved $0.95$).
+- Record classification with `OBSERVED` provenance in the fact store for downstream compliance evaluation.
+
+### 2. Implementation Approach
+- Authored `tunneltwin/probe/fingerprint.py` defining `DaemonType`, `DaemonFingerprint`, and `classify_daemon(msg, rtt_ms)`.
+- Decision logic:
+  * Libreswan quirk: Unsolicited `NAT_DETECTION_SOURCE_IP` (16388) and `NAT_DETECTION_DESTINATION_IP` (16389) emitted in `IKE_SA_INIT` responses without client request; strongSwan signature hash (16404) absent; notify 16418 present $\implies$ `DaemonType.LIBRESWAN` (0.95 confidence).
+  * strongSwan quirk: RFC 7427 `SIGNATURE_HASH_ALGORITHMS` (16404) emitted; unsolicited NAT-D omitted $\implies$ `DaemonType.STRONGSWAN` (0.95 confidence).
+  * Cisco ASA quirk: Private vendor IDs (`12f5f28c...`) or private notify codes (16400-16402) $\implies$ `DaemonType.CISCO_ASA` (0.90-1.0 confidence).
+- Integrated into `tunneltwin/probe/scanner.py` and `tunneltwin/rules/facts.py` (`key="daemon_type"`).
+
+### 3. Verification Log
+- Verified against live Libreswan responder in `ns-libreswan`:
+  ```text
+  --> Fingerprint Result: LIBRESWAN (Confidence: 95.0%) — Evidence: Libreswan signature: Unsolicited NAT_DETECTION (16388/16389) emitted; SIGNATURE_HASH (16404) absent; Notify 16418 (REDIRECT_SUPPORTED / CHILDLESS_IKE_SA_SUPPORTED) present
+      * Evidence: Libreswan signature: Unsolicited NAT_DETECTION (16388/16389) emitted; SIGNATURE_HASH (16404) absent
+      * Evidence: Notify 16418 (REDIRECT_SUPPORTED / CHILDLESS_IKE_SA_SUPPORTED) present
+  [OK] Libreswan behaviorally fingerprinted with >= 90% confidence via payload quirks!
+  ```
+- 10 unit tests in `tests/test_fingerprint.py` all passed.
+
+
+---
+
+## FEAT-014: Libreswan Remediation Generator & Cross-Daemon Interoperability Proof
+
+### 1. Scope & Objectives
+- Generate compliant `ipsec.conf` connection configurations and `ipsec.secrets` for Libreswan matching target security profiles (`aes256gcm-baseline`, `nist-sp800-77r1`, `cnsa-suite`).
+- Label all Libreswan generated configurations with `lab-verified` status.
+- Re-run the fix-and-prove chain against a Libreswan namespace:
+  1. Weak baseline finding reproduced against Libreswan namespace (`score = 71/100`).
+  2. Remediated Libreswan config applied.
+  3. Cross-daemon IPsec SA established between strongSwan (`ns-left`) and Libreswan (`ns-libreswan`).
+  4. Data-plane ICMP ping verified across tunnel with 0% packet loss.
+  5. Active prober re-scan confirms findings cleared and score improved to 99/100.
+
+### 2. Implementation Approach
+- Authored `tunneltwin/fix/libreswan_generator.py` (`generate_libreswan_config`, `generate_libreswan_secrets`).
+- Updated `SecurityProfile` in `models.py` and `profiles.py` with Libreswan algorithm syntax (`libreswan_ike`, `libreswan_esp`).
+- Authored `lab/run_phase4_multi_daemon.py` and `lab/run_phase4_multi_daemon.sh`.
+- Authored integration test `tests/test_phase4_matrix.py`.
+
+### 3. Verification Log
+- Cross-daemon tunnel established on live daemons:
+  * strongSwan active SA: `AES_GCM_16-256/PRF_HMAC_SHA2_384/ECP_384`, Child SA `ESP:AES_GCM_16-256`.
+  * Libreswan active traffic status: `#2: "swan-interop", type=ESP, add_time=1790609185, id='10.0.1.1'`.
+- Data-plane ICMP ping across tunnel:
+  ```text
+  3 packets transmitted, 3 received, 0% packet loss, time 2052ms
+  rtt min/avg/max/mdev = 0.050/0.071/0.087/0.015 ms
+  ```
+- Re-scan confirmed findings cleared:
+  * Cleared findings: `NIST-005` (AES-GCM Preferred over AES-CBC), `CNSA-002` (Minimum ECP-384 Required), `CNSA-004` (SHA-384 Minimum Integrity).
+  * Posture score improved from 71 to 99/100.
+  * Re-scan reaffirmed daemon fingerprint: `LIBRESWAN (Confidence: 95.0%)`.
+- `tests/test_phase4_matrix.py` PASSED in WSL2.
 
 
