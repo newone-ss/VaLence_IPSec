@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import secrets
+import time
 from dataclasses import dataclass
 
 from tunneltwin.ike.codec import (
@@ -44,6 +45,7 @@ from tunneltwin.ike.transforms import (
     generate_ikev2_elimination_batch,
 )
 from tunneltwin.probe.allowlist import ConsentDeniedError, TargetAllowlist
+from tunneltwin.probe.fingerprint import classify_daemon
 from tunneltwin.probe.result import (
     AcceptedTransform,
     GatewayScanResult,
@@ -231,7 +233,9 @@ async def _ikev2_discover_dh_groups(
         )
         result.probe_count += 1
 
+        t0 = time.monotonic()
         response_data = await _send_probe(protocol, packet, target_ip, target_port, config)
+        rtt_ms = (time.monotonic() - t0) * 1000.0
 
         if response_data is None:
             logger.debug("No response for DH group %s — marking as timeout", group_name)
@@ -247,6 +251,10 @@ async def _ikev2_discover_dh_groups(
             await _rate_limit_delay(config)
             continue
 
+        # Behavioral daemon fingerprinting (Phase 4)
+        if result.fingerprint is None or not result.fingerprint.is_identified:
+            result.fingerprint = classify_daemon(msg, rtt_ms=rtt_ms)
+
         # Cookie handling (RFC 7296 §2.6)
         response_cookie = msg.get_cookie()
         if response_cookie is not None:
@@ -261,7 +269,9 @@ async def _ikev2_discover_dh_groups(
                 cookie=cookie,
             )
             result.probe_count += 1
+            t0 = time.monotonic()
             response_data = await _send_probe(protocol, packet, target_ip, target_port, config)
+            rtt_ms = (time.monotonic() - t0) * 1000.0
 
             if response_data is None:
                 result.add_rejected_dh_group(group_name, "timeout after cookie retry")
@@ -274,6 +284,9 @@ async def _ikev2_discover_dh_groups(
                 result.add_rejected_dh_group(group_name, "parse_error after cookie")
                 await _rate_limit_delay(config)
                 continue
+
+            if result.fingerprint is None or not result.fingerprint.is_identified:
+                result.fingerprint = classify_daemon(msg, rtt_ms=rtt_ms)
 
         # Check if this group was accepted
         if msg.has_notify(NotifyType.NO_PROPOSAL_CHOSEN):
@@ -462,7 +475,9 @@ async def _ikev1_scan(
             packet = build_ikev1_main_mode_request(batch)
             result.probe_count += 1
 
+            t0 = time.monotonic()
             response_data = await _send_probe(protocol, packet, target_ip, target_port, config)
+            rtt_ms = (time.monotonic() - t0) * 1000.0
 
             if response_data is None:
                 continue
@@ -471,6 +486,10 @@ async def _ikev1_scan(
                 msg = parse_ike_message(response_data)
             except IKEParseError:
                 continue
+
+            # Behavioral daemon fingerprinting (Phase 4)
+            if result.fingerprint is None or not result.fingerprint.is_identified:
+                result.fingerprint = classify_daemon(msg, rtt_ms=rtt_ms)
 
             if msg.is_ikev1 and not result.ike_version_detected.is_known():
                 result.mark_observed_ike_version("IKEv1")
@@ -584,6 +603,10 @@ async def scan_gateway(
         if config.try_ikev1:
             logger.info("Starting IKEv1 Main Mode scan for %s:%d", target_ip, target_port)
             await _ikev1_scan(protocol, target_ip, target_port, config, result)
+
+        # Ensure behavioral daemon fingerprint is initialized
+        if result.fingerprint is None:
+            result.fingerprint = classify_daemon(None)
 
         # Determine final scan status
         if result.accepted_transforms or result.ikev1_accepted:

@@ -18,6 +18,7 @@ from tunneltwin.ike.constants import (
     INTEGRITY_NAMES,
     PRF_NAMES,
 )
+from tunneltwin.probe.fingerprint import DaemonFingerprint
 
 
 class ScanStatus(str, Enum):
@@ -132,6 +133,15 @@ class GatewayScanResult:
     # Responder SPI (for correlation)
     responder_spi: bytes = b""
 
+    # Behavioral Daemon Fingerprinting (Phase 4)
+    fingerprint: DaemonFingerprint | None = None
+
+    @property
+    def detected_daemon(self) -> str:
+        if self.fingerprint and self.fingerprint.is_identified:
+            return self.fingerprint.daemon.value
+        return "unknown"
+
     @property
     def scan_duration_ms(self) -> float:
         return (self.scan_end_time - self.scan_start_time) * 1000
@@ -185,6 +195,9 @@ class GatewayScanResult:
 
         if self.ike_version_detected.is_known():
             lines.append(f"  IKE Version   : {self.ike_version_detected.value}")
+
+        if self.fingerprint and self.fingerprint.is_identified:
+            lines.append(f"  Daemon Type   : {self.fingerprint.summary()}")
 
         if self.cookie_required.is_known():
             lines.append(f"  Cookie Needed : {self.cookie_required.value}")

@@ -304,4 +304,17 @@ def scan_result_to_facts(
         )
     )
 
+    # Behavioral daemon fingerprint
+    if result.fingerprint and result.fingerprint.is_identified:
+        store.add(
+            Fact(
+                subject=subject,
+                key="daemon_type",
+                value=result.fingerprint.daemon.value,
+                provenance=ProvenanceTag.OBSERVED,
+                confidence=result.fingerprint.confidence,
+                source_pointer=source,
+            )
+        )
+
     return store
