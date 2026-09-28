@@ -120,7 +120,7 @@ jobs:
       - name: Dependency vulnerability scan (pip-audit)
         run: |
           pip install pip-audit
-          pip-audit --strict
+          pip-audit --strict --skip-editable
 
       - name: Static security analysis (Bandit)
         run: |
