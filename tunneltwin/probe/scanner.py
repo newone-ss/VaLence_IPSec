@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import random
+import secrets
 from dataclasses import dataclass
 
 from tunneltwin.ike.codec import (
@@ -131,7 +131,7 @@ async def _create_udp_socket() -> tuple[asyncio.DatagramTransport, _IKEProtocol]
     loop = asyncio.get_running_loop()
     transport, protocol = await loop.create_datagram_endpoint(
         _IKEProtocol,
-        local_addr=("0.0.0.0", 0),  # noqa: S104
+        local_addr=("0.0.0.0", 0),  # nosec B104  # noqa: S104
     )
     return transport, protocol  # type: ignore[return-value]
 
@@ -161,7 +161,7 @@ async def _send_probe(
 
     for attempt in range(config.max_retries + 1):
         # Add jitter
-        jitter = random.randint(0, config.jitter_range_ms) / 1000.0  # noqa: S311
+        jitter = secrets.randbelow(config.jitter_range_ms + 1) / 1000.0 if config.jitter_range_ms > 0 else 0.0
         timeout_s = (timeout_ms / 1000.0) + jitter
 
         logger.debug(
@@ -188,7 +188,7 @@ async def _rate_limit_delay(config: ScanConfig) -> None:
     """Apply rate limiting delay between probes."""
     if config.rate_limit_delay_ms > 0:
         delay = config.rate_limit_delay_ms / 1000.0
-        jitter = random.randint(0, config.jitter_range_ms) / 1000.0  # noqa: S311
+        jitter = secrets.randbelow(config.jitter_range_ms + 1) / 1000.0 if config.jitter_range_ms > 0 else 0.0
         await asyncio.sleep(delay + jitter)
 
 

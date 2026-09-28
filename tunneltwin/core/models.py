@@ -36,7 +36,7 @@ class AssessmentStatus(str, Enum):
     Evaluation outcomes for security and compliance rules.
     """
 
-    PASS = "PASS"  # noqa: S105
+    PASS = "PASS"  # nosec B105  # noqa: S105
     FAIL = "FAIL"
     CANNOT_ASSESS = "CANNOT ASSESS"
 
