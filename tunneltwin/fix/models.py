@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 # Mandatory label for all Cisco ASA generated configurations
 CISCO_ASA_VERIFICATION_LABEL = "generated, not lab-verified"
 SWANCTL_VERIFIED_LABEL = "lab-verified"
+LIBRESWAN_VERIFIED_LABEL = "lab-verified"
 
 
 @dataclass
@@ -35,6 +36,9 @@ class SecurityProfile:
     cisco_ike_prfs: list[str] = field(default_factory=lambda: ["sha384", "sha256"])
     cisco_esp_encryption: str = "aes-gcm-256"
     cisco_esp_integrity: str = "null"
+    # Libreswan syntax
+    libreswan_ike: list[str] = field(default_factory=list)
+    libreswan_esp: list[str] = field(default_factory=list)
     # Operational parameters
     ike_lifetime_seconds: int = 86400
     esp_lifetime_seconds: int = 28800

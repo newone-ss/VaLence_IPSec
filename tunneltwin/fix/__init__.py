@@ -10,8 +10,10 @@ Modules:
 """
 
 from tunneltwin.fix.cisco_generator import generate_cisco_asa_config
+from tunneltwin.fix.libreswan_generator import generate_libreswan_config, generate_libreswan_secrets
 from tunneltwin.fix.models import (
     CISCO_ASA_VERIFICATION_LABEL,
+    LIBRESWAN_VERIFIED_LABEL,
     SWANCTL_VERIFIED_LABEL,
     RemediationConfig,
     SecurityProfile,
@@ -31,6 +33,7 @@ from tunneltwin.fix.twin import TwinVerifier, build_remediation_artifacts
 __all__ = [
     "AES256GCM_BASELINE",
     "CISCO_ASA_VERIFICATION_LABEL",
+    "LIBRESWAN_VERIFIED_LABEL",
     "NIST_SP800_77R1",
     "NSA_CNSA_SUITE",
     "RemediationConfig",
@@ -41,6 +44,8 @@ __all__ = [
     "TwinVerifier",
     "build_remediation_artifacts",
     "generate_cisco_asa_config",
+    "generate_libreswan_config",
+    "generate_libreswan_secrets",
     "generate_swanctl_conf",
     "generate_swanctl_pair",
     "generate_unified_diff",
