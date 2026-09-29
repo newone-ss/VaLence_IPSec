@@ -1,0 +1,92 @@
+# ─────────────────────────────────────────────────────────────────────
+#  NSA CNSA Suite — Commercial National Security Algorithm Suite
+#  https://media.defense.gov/2022/Sep/07/2003071834/-1/-1/0/CSA_CNSA_2.0_ALGORITHMS_.PDF
+#
+#  CNSA 2.0 mandates a strict minimum floor for national security systems.
+#  These rules enforce the CNSA 2.0 minimum requirements for IPsec.
+# ─────────────────────────────────────────────────────────────────────
+pack_name: "NSA CNSA Suite"
+
+rules:
+  # ── Protocol Version ──────────────────────────────────────────────
+  - id: "CNSA-001"
+    name: "IKEv2 Required"
+    category: "protocol_version"
+    description: >
+      CNSA Suite requires IKEv2 (RFC 7296). IKEv1 does not support
+      the required cryptographic agility and is excluded from CNSA
+      compliance.
+    required_facts:
+      - "ike_version"
+    condition:
+      type: "equals"
+      field: "ike_version"
+      values: ["IKEv2"]
+    severity: 10
+    citation: "NSA CNSA 2.0, Section 3 - Protocol Requirements"
+    remediation_template_id: "REM-PROTO-001"
+
+  # ── Key Exchange ──────────────────────────────────────────────────
+  - id: "CNSA-002"
+    name: "Minimum ECP-384 Required"
+    category: "key_exchange"
+    description: >
+      CNSA Suite mandates ECDH with NIST P-384 (ECP-384) as the minimum
+      DH group. MODP groups and ECP-256 do not meet the CNSA security
+      strength floor of 192 bits.
+    required_facts:
+      - "accepted_dh_group"
+    condition:
+      type: "in"
+      field: "accepted_dh_group"
+      values:
+        - "ECP-384"
+        - "ECP-521"
+        - "CURVE-448"
+    severity: 10
+    citation: "NSA CNSA 2.0, Section 4 - Key Establishment"
+    remediation_template_id: "REM-DH-003"
+
+  # ── Encryption ────────────────────────────────────────────────────
+  - id: "CNSA-003"
+    name: "AES-256 Required"
+    category: "encryption"
+    description: >
+      CNSA Suite requires AES with a 256-bit key. AES-128 and all
+      legacy ciphers (DES, 3DES) are insufficient for CNSA compliance.
+    required_facts:
+      - "cipher"
+    condition:
+      type: "in"
+      field: "cipher"
+      values:
+        - "AES-GCM-16-256"
+        - "AES-GCM-12-256"
+        - "AES-GCM-8-256"
+        - "AES-CBC-256"
+        - "AES-CTR-256"
+    severity: 10
+    citation: "NSA CNSA 2.0, Section 5 - Symmetric Encryption"
+    remediation_template_id: "REM-ENCR-003"
+
+  # ── Integrity ─────────────────────────────────────────────────────
+  - id: "CNSA-004"
+    name: "SHA-384 Minimum Integrity"
+    category: "integrity"
+    description: >
+      CNSA Suite requires SHA-384 as the minimum hash algorithm for
+      integrity protection. SHA-256, SHA-1, and MD5 do not meet the
+      192-bit security strength requirement.
+    required_facts:
+      - "integrity"
+    condition:
+      type: "in"
+      field: "integrity"
+      values:
+        - "HMAC-SHA2-384-192"
+        - "HMAC-SHA2-512-256"
+        - "SHA384"
+        - "SHA512"
+    severity: 8
+    citation: "NSA CNSA 2.0, Section 6 - Hash Functions"
+    remediation_template_id: "REM-INTEG-003"

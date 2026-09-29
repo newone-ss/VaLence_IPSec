@@ -1,0 +1,81 @@
+[
+  {
+    "target": "profile",
+    "backend": "lightgbm",
+    "n_train": 18,
+    "n_test": 6,
+    "accuracy": 0.6666666666666666,
+    "per_class": {
+      "mixed": 1.0,
+      "strong": 0.6666666666666666,
+      "weak": 0.5
+    },
+    "feature_names": [
+      "n_packets",
+      "size_mean",
+      "size_std",
+      "size_min",
+      "size_max",
+      "size_median",
+      "size_entropy",
+      "size_over_1400_ratio",
+      "size_under_128_ratio",
+      "iat_mean",
+      "iat_std",
+      "iat_min",
+      "iat_max",
+      "iat_median",
+      "iat_p95",
+      "burst_ratio_10ms",
+      "burst_ratio_50ms",
+      "byte_rate",
+      "seq_gap_ratio",
+      "seq_reorder_ratio",
+      "seq_span_per_packet",
+      "fwd_pkt_ratio",
+      "fwd_byte_ratio",
+      "conv_pkt_count",
+      "size_mean_ratio",
+      "iat_mean_ratio"
+    ]
+  },
+  {
+    "target": "traffic_pattern",
+    "backend": "lightgbm",
+    "n_train": 18,
+    "n_test": 6,
+    "accuracy": 1.0,
+    "per_class": {
+      "bulk": 1.0,
+      "chatty": 1.0
+    },
+    "feature_names": [
+      "n_packets",
+      "size_mean",
+      "size_std",
+      "size_min",
+      "size_max",
+      "size_median",
+      "size_entropy",
+      "size_over_1400_ratio",
+      "size_under_128_ratio",
+      "iat_mean",
+      "iat_std",
+      "iat_min",
+      "iat_max",
+      "iat_median",
+      "iat_p95",
+      "burst_ratio_10ms",
+      "burst_ratio_50ms",
+      "byte_rate",
+      "seq_gap_ratio",
+      "seq_reorder_ratio",
+      "seq_span_per_packet",
+      "fwd_pkt_ratio",
+      "fwd_byte_ratio",
+      "conv_pkt_count",
+      "size_mean_ratio",
+      "iat_mean_ratio"
+    ]
+  }
+]

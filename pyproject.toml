@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tunneltwin"
+version = "0.1.0"
+description = "AI-Powered IPsec VPN Protocol Analyzer and Security Assessment Framework"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "TunnelTwin Engineering Team" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Security :: Cryptography",
+    "Topic :: System :: Networking"
+]
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.22.0",
+    "pydantic>=2.0.0",
+    "rich>=13.0.0",
+    "pyyaml>=6.0",
+    "cryptography>=41.0.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["tunneltwin*"]
+
+[tool.setuptools.package-data]
+"tunneltwin.rules.packs" = ["*.yaml"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "numpy>=1.24.0",
+]
+ml = [
+    "numpy>=1.26",
+    "scikit-learn>=1.4",
+    "lightgbm>=4.0",
+    "joblib>=1.3",
+    "shap>=0.44",
+]
+
+# ── Ruff (linter + formatter) ──────────────────────────────
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "S",    # flake8-bandit (security)
+    "T20",  # flake8-print
+    "SIM",  # flake8-simplify
+]
+ignore = [
+    "S101",   # allow assert in tests
+    "T201",   # allow print in CLI
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S603", "S607"]
+"lab/**" = ["S108", "S603", "S607", "E402", "T201"]
+
+# ── Bandit (security) ─────────────────────────────────────
+[tool.bandit]
+exclude_dirs = ["tests", "lab"]
+skips = ["B101", "B104", "B105"]
+
+# ── Pytest ─────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]

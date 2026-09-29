@@ -1,0 +1,20 @@
+{
+  "source": "legacy-cbc/bulk/cap_1_1790703262.pcap#conv0",
+  "predicted": "legacy-cbc",
+  "confidence": 0.9996393423082272,
+  "method": "tree_shap",
+  "top_features": [
+    [
+      "size_max",
+      4.955145243679186
+    ],
+    [
+      "size_mean",
+      2.416037203542245
+    ],
+    [
+      "iat_std",
+      -1.7176800096303553
+    ]
+  ]
+}

@@ -1,0 +1,192 @@
+# ─────────────────────────────────────────────────────────────────────
+#  NIST SP 800-77 Rev 1 — Guide to IPsec VPNs
+#  https://csrc.nist.gov/publications/detail/sp/800-77/rev-1/final
+#
+#  Rules derived from Section 5 (IKE), Section 6 (ESP/AH), and
+#  Appendix D (Algorithm Recommendations).
+# ─────────────────────────────────────────────────────────────────────
+pack_name: "NIST SP 800-77 Rev 1"
+
+rules:
+  # ── Protocol Version ──────────────────────────────────────────────
+  - id: "NIST-001"
+    name: "IKEv1 Deprecated"
+    category: "protocol_version"
+    description: >
+      IKEv1 (RFC 2409) is deprecated. NIST SP 800-77r1 §5.1 mandates
+      IKEv2 (RFC 7296) for new deployments due to improved security,
+      simplified exchange, and resistance to denial-of-service attacks.
+    required_facts:
+      - "ike_version"
+    condition:
+      type: "not_equals"
+      field: "ike_version"
+      values: ["IKEv1"]
+    severity: 8
+    citation: "NIST SP 800-77 Rev 1, Section 5.1"
+    remediation_template_id: "REM-PROTO-001"
+
+  # ── Key Exchange ──────────────────────────────────────────────────
+  - id: "NIST-002"
+    name: "DH Group Below 2048-bit Prohibited"
+    category: "key_exchange"
+    description: >
+      DH groups with fewer than 2048 bits (MODP-768, MODP-1024, MODP-1536)
+      are vulnerable to precomputation attacks and MUST NOT be used.
+      NIST SP 800-77r1 §5.3 requires a minimum of 2048-bit MODP or
+      256-bit ECP for key exchange.
+    required_facts:
+      - "accepted_dh_group"
+    condition:
+      type: "not_in"
+      field: "accepted_dh_group"
+      values:
+        - "MODP-768"
+        - "MODP-1024"
+        - "MODP-1536"
+    severity: 9
+    citation: "NIST SP 800-77 Rev 1, Section 5.3 & Appendix D"
+    remediation_template_id: "REM-DH-001"
+
+  - id: "NIST-003"
+    name: "MODP-2048 Acceptable but ECP Preferred"
+    category: "key_exchange"
+    description: >
+      MODP-2048 provides minimum acceptable security but elliptic curve
+      groups (ECP-256, ECP-384) offer equivalent security with better
+      performance. NIST recommends migration to ECDH for new deployments.
+    required_facts:
+      - "accepted_dh_group"
+    condition:
+      type: "not_in"
+      field: "accepted_dh_group"
+      values:
+        - "MODP-2048"
+    severity: 2
+    citation: "NIST SP 800-77 Rev 1, Section 5.3"
+    remediation_template_id: "REM-DH-002"
+
+  # ── Encryption ────────────────────────────────────────────────────
+  - id: "NIST-004"
+    name: "DES and 3DES Prohibited"
+    category: "encryption"
+    description: >
+      DES (56-bit) and Triple DES (168-bit effective, 112-bit security)
+      are prohibited for protecting federal information. AES-128 or
+      AES-256 MUST be used per NIST SP 800-77r1 §6.2.
+    required_facts:
+      - "cipher"
+    condition:
+      type: "not_in"
+      field: "cipher"
+      values:
+        - "DES"
+        - "DES-CBC"
+        - "3DES"
+        - "3DES-CBC"
+    severity: 9
+    citation: "NIST SP 800-77 Rev 1, Section 6.2 & NIST SP 800-131A Rev 2"
+    remediation_template_id: "REM-ENCR-001"
+
+  - id: "NIST-005"
+    name: "AES-GCM Preferred over AES-CBC"
+    category: "encryption"
+    description: >
+      AEAD ciphers (AES-GCM) provide authenticated encryption in a single
+      pass. CBC mode requires a separate integrity algorithm and is more
+      susceptible to padding oracle attacks. AES-GCM is recommended for
+      new deployments per NIST SP 800-77r1 §6.2.
+    required_facts:
+      - "cipher"
+    condition:
+      type: "not_in"
+      field: "cipher"
+      values:
+        - "AES-CBC-128"
+        - "AES-CBC-256"
+    severity: 2
+    citation: "NIST SP 800-77 Rev 1, Section 6.2"
+    remediation_template_id: "REM-ENCR-002"
+
+  # ── Integrity ─────────────────────────────────────────────────────
+  - id: "NIST-006"
+    name: "MD5 Integrity Prohibited"
+    category: "integrity"
+    description: >
+      MD5 is cryptographically broken with practical collision attacks.
+      It MUST NOT be used for integrity protection in IPsec.
+      SHA-256 or higher is required per NIST SP 800-77r1 §6.3.
+    required_facts:
+      - "integrity"
+    condition:
+      type: "not_in"
+      field: "integrity"
+      values:
+        - "MD5"
+        - "HMAC-MD5-96"
+    severity: 9
+    citation: "NIST SP 800-77 Rev 1, Section 6.3"
+    remediation_template_id: "REM-INTEG-001"
+
+  - id: "NIST-007"
+    name: "SHA-1 Integrity Deprecated"
+    category: "integrity"
+    description: >
+      SHA-1 has known theoretical weaknesses and practical collision
+      attacks (SHAttered, 2017). NIST SP 800-131A Rev 2 disallows SHA-1
+      for digital signatures after 2030. SHA-256 or higher is recommended.
+    required_facts:
+      - "integrity"
+    condition:
+      type: "not_in"
+      field: "integrity"
+      values:
+        - "SHA1"
+        - "HMAC-SHA1-96"
+    severity: 5
+    citation: "NIST SP 800-77 Rev 1, Section 6.3 & NIST SP 800-131A Rev 2"
+    remediation_template_id: "REM-INTEG-002"
+
+  # ── Encryption Key Length ─────────────────────────────────────────
+  - id: "NIST-008"
+    name: "AES-256 Recommended Over AES-128"
+    category: "encryption"
+    description: >
+      While AES-128 is acceptable, NIST SP 800-131A Rev 2 and
+      SP 800-77 Rev 1 recommend AES-256 for systems requiring long-term
+      data protection. AES-256 provides a security margin against
+      future cryptanalytic advances and quantum threats.
+    required_facts:
+      - "cipher"
+    condition:
+      type: "not_in"
+      field: "cipher"
+      values:
+        - "AES-CBC-128"
+        - "AES-GCM-16-128"
+        - "AES-GCM-12-128"
+        - "AES-GCM-8-128"
+        - "AES-CTR-128"
+    severity: 3
+    citation: "NIST SP 800-77 Rev 1, Section 6.2 & NIST SP 800-131A Rev 2"
+    remediation_template_id: "REM-ENCR-004"
+
+  # ── Exposure / DoS Protection ─────────────────────────────────────
+  - id: "NIST-009"
+    name: "IKEv2 Cookie Threshold / DoS Protection"
+    category: "exposure"
+    description: >
+      NIST SP 800-77 Rev 1 Section 4.3 recommends that IKEv2 responders
+      enforce cookie mechanisms (RFC 7296 Section 2.6) to mitigate half-open
+      state exhaustion and asymmetric CPU denial-of-service attacks before
+      performing Diffie-Hellman exponentiation.
+    required_facts:
+      - "cookie_required"
+    condition:
+      type: "equals"
+      field: "cookie_required"
+      values: ["True"]
+    severity: 1
+    citation: "NIST SP 800-77 Rev 1, Section 4.3 - Denial of Service Countermeasures"
+    remediation_template_id: "REM-DOS-001"
+
