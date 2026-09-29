@@ -22,7 +22,7 @@ Every assessment fact carries strict provenance metadata, preventing false assur
 
 ---
 
-## Architecture
+## Architecture.
 
 ```
                   ┌────────────────────────────────────────┐
