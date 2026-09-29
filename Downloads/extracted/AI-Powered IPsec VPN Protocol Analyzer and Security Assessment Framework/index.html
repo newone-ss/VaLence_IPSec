@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/ipsec-mark.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101416" />
+    <script>
+      try {
+        const theme = localStorage.getItem('ipsec-color-theme') === 'light' ? 'light' : 'dark'
+        document.documentElement.dataset.theme = theme
+        document.documentElement.style.colorScheme = theme
+      } catch {
+        document.documentElement.dataset.theme = 'dark'
+        document.documentElement.style.colorScheme = 'dark'
+      }
+    </script>
+    <meta name="description" content="IPsec VPN security operations console for gateway assessment, protocol analysis, verification, evidence, and reporting." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="IPsec Security Assessment" />
+    <meta property="og:description" content="Operational workspace for IPsec VPN assessment and evidence review." />
+    <title>IPsec Security Assessment</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
