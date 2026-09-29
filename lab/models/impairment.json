@@ -1,0 +1,42 @@
+{
+  "note": "Evaluated on real PCAPs captured under Linux tc netem conditions",
+  "conditions": [
+    "clean",
+    "jitter",
+    "loss",
+    "reorder",
+    "jitter+loss"
+  ],
+  "results": [
+    {
+      "condition": "clean",
+      "accuracy": 0.75,
+      "delta_vs_clean": 0.0,
+      "n_flows": 4
+    },
+    {
+      "condition": "jitter",
+      "accuracy": 0.75,
+      "delta_vs_clean": 0.0,
+      "n_flows": 4
+    },
+    {
+      "condition": "loss",
+      "accuracy": 0.75,
+      "delta_vs_clean": 0.0,
+      "n_flows": 4
+    },
+    {
+      "condition": "reorder",
+      "accuracy": 0.75,
+      "delta_vs_clean": 0.0,
+      "n_flows": 4
+    },
+    {
+      "condition": "jitter+loss",
+      "accuracy": 0.75,
+      "delta_vs_clean": 0.0,
+      "n_flows": 4
+    }
+  ]
+}
