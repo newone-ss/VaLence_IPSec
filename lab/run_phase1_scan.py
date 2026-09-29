@@ -129,8 +129,14 @@ def scan_worker(profile_name: str, target_ip: str) -> GatewayScanResult:
     return asyncio.run(probe_gateway_from_ns_left(target_ip))
 
 
+def is_root() -> bool:
+    if hasattr(os, "geteuid"):
+        return os.geteuid() == 0
+    return False
+
+
 def main() -> int:
-    if os.geteuid() != 0:
+    if not is_root():
         print("[ERROR] Phase 1 integration scan must be executed as root (for network namespace access).")
         return 1
 
@@ -141,7 +147,7 @@ def main() -> int:
     print("\n[1/3] Initializing Linux network namespaces (ns-left <-> ns-right)...")
     setup_namespaces_if_needed()
 
-    results: list[tuple[dict[str, object], GatewayScanResult]] = []
+    results: list[tuple[dict[str, object], dict]] = []
     all_passed = True
 
     print("\n[2/3] Scanning 5 live testbed gateways (4 Phase-0 profiles + 1 Cookie gateway)...")

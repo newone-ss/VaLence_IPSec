@@ -330,8 +330,14 @@ def teardown_tunnel() -> None:
 # ═══════════════════════════════════════════════════════════════════════
 
 
+def is_root() -> bool:
+    if hasattr(os, "geteuid"):
+        return os.geteuid() == 0
+    return False
+
+
 def main() -> int:
-    if os.geteuid() != 0:
+    if not is_root():
         print("[ERROR] Phase 3 twin proof must be executed as root (network namespace access).")
         return 1
 

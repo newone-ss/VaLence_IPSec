@@ -528,6 +528,7 @@ async def _ikev1_scan(
 
                         # Exclude the accepted combination for next iteration
                         excluded_encr.add((encr, key_len))
+                        excluded_hash.add(hash_alg)
                         excluded_dh.add(dh)
 
                 await _rate_limit_delay(config)

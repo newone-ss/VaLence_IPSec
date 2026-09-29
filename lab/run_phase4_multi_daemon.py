@@ -298,6 +298,12 @@ def stop_daemons_and_flush_xfrm() -> None:
 # ═══════════════════════════════════════════════════════════════════════
 
 
+def is_root() -> bool:
+    if hasattr(os, "geteuid"):
+        return os.geteuid() == 0
+    return False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="TunnelTwin Phase 4 Multi-Daemon Diversity Runner")
     parser.add_argument("--scan-worker", action="store_true", help=argparse.SUPPRESS)
@@ -308,7 +314,7 @@ def main() -> int:
     if args.scan_worker:
         return scan_worker(args.target_ip, args.out)
 
-    if os.geteuid() != 0:
+    if not is_root():
         print("ERROR: Phase 4 runner must be executed with root privileges inside Linux/WSL2.", file=sys.stderr)
         return 1
 
