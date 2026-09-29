@@ -16,7 +16,7 @@
 
 **Valence_IPSec** (engine: `tunneltwin`) is an IPsec protocol assessment and automated hardening engine designed for defense, intelligence, and enterprise network architectures. 
 
-Traditional VPN audits suffer from a fundamental disconnect: static configuration audits miss live cryptographic negotiation realities and NAT-traversal edge cases, while black-box network scanners cannot inspect pre-shared keys, routing domains, or internal Phase 2 security associations. Valence_IPSec bridges this gap through **dual-perspective reconciliation**—merging passive configuration parsing (Cisco IOS, strongSwan, FortiOS) with safe, consent-gated active IKE probing (RFC 7296 / RFC 2409).
+Traditional VPN audits suffer from a fundamental disconnect: static configuration audits miss live cryptographic negotiation realities and NAT-traversal edge cases, while black-box network scanners cannot inspect pre-shared keys, routing domains, or internal Phase 2 security associations. Valence_IPSec bridges this gap through **dual-perspective reconciliation**—merging passive configuration parsing (Cisco IOS, strongSwan, FortiOS) with safe, consent-gated active IKE probing (RFC 7296 / RFC 2409)
 
 Every assessment fact carries strict provenance metadata, preventing false assurances by rejecting evaluations based on missing or unverified parameters.
 
