@@ -14,10 +14,80 @@ Verifies:
 
 from __future__ import annotations
 
-import pytest
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from tunneltwin.api.app import app
+import pytest
+
+pytest.importorskip("httpx")
+
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlmodel import Session  # noqa: E402
+
+from tunneltwin.api.app import app  # noqa: E402
+from tunneltwin.core.db import (  # noqa: E402
+    Finding,
+    FindingStatus,
+    Gateway,
+    ProvenanceEnum,
+    ScanRun,
+    ScanStatus,
+    Target,
+    engine,
+    init_db,
+)
+from tunneltwin.seal.engine import seal_scan_run  # noqa: E402
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_api_database():
+    """Ensure database has at least one sealed scan run (run 24) for reports/verify/attest in CI."""
+    init_db()
+    with Session(engine) as session:
+        run = session.get(ScanRun, 24)
+        if not run:
+            target = Target(name="ci-test-target", ip_range="10.0.1.2/32")
+            session.add(target)
+            session.commit()
+            session.refresh(target)
+
+            gw = Gateway(
+                target_id=target.id,
+                ip_address="10.0.1.2",
+                port=500,
+                vendor_type="cisco_asa",
+                ike_version="IKEv1",
+                responded=True,
+            )
+            session.add(gw)
+            session.commit()
+            session.refresh(gw)
+
+            run = ScanRun(
+                id=24,
+                target_id=target.id,
+                scan_type="active_probe",
+                status=ScanStatus.COMPLETED,
+            )
+            session.add(run)
+            session.commit()
+            session.refresh(run)
+
+            f1 = Finding(
+                scan_run_id=24,
+                rule_id="NIST-800-77-IKEV1-DEPRECATED",
+                rule_framework="nist_sp800_77r1",
+                severity="CRITICAL",
+                status=FindingStatus.FAIL,
+                parameter="ike_version",
+                expected="IKEv2",
+                observed="IKEv1",
+                provenance=ProvenanceEnum.OBSERVED,
+                detail="IKEv1 is deprecated",
+            )
+            session.add(f1)
+            session.commit()
+
+            seal_scan_run(24, key_dir=Path(".keys"))
 
 
 @pytest.fixture(scope="module")
