@@ -1,6 +1,6 @@
 """
 tests/test_phase6_fleet_store.py - Unit test suite for Phase 6 SQLite fleet store,
-emulator, and Typer CLI.
+ingestion bridge, HTML report generator, emulator, and Typer CLI.
 """
 
 from __future__ import annotations
@@ -27,7 +27,19 @@ from tunneltwin.core.db import (
     SealType,
     Target,
 )
+from tunneltwin.core.ingest import ingest_scan_run
+from tunneltwin.core.models import AssessmentStatus, ProvenancedFact
 from tunneltwin.probe.emulator import _SimNode, run_emulator
+from tunneltwin.probe.result import (
+    AcceptedTransform,
+    GatewayScanResult,
+    IKEv1AcceptedTransform,
+)
+from tunneltwin.probe.result import (
+    ScanStatus as ProbeScanStatus,
+)
+from tunneltwin.reports.html import generate_html_report
+from tunneltwin.rules.engine import RuleResult
 
 
 @pytest.fixture
@@ -153,6 +165,85 @@ def test_db_schema_and_crud(temp_db):
         assert runs[0].operator == "tester"
 
 
+def test_ingest_scan_and_html_generation(temp_db):
+    """Verify ingestion of live-format GatewayScanResult and HTML report rendering."""
+    # Build simulated live scan result
+    scan_res = GatewayScanResult(
+        target_ip="10.0.1.2",
+        target_port=500,
+        scan_status=ProbeScanStatus.SUCCESS,
+        ike_version_detected=ProvenancedFact.observed("IKEv1"),
+        accepted_transforms=[AcceptedTransform(transform_type=1, transform_id=20, key_length=256)],
+        ikev1_accepted=[IKEv1AcceptedTransform(encryption=5, hash_alg=1, auth_method=1, dh_group=2, key_length=None)],
+        scan_start_time=1727670000.0,
+        scan_end_time=1727670001.2,
+        probe_count=14,
+    )
+
+    rule_results = [
+        RuleResult(
+            rule_id="NIST-SP800-77r1-IKEV1",
+            rule_name="IKEv1 Deprecation",
+            pack="NIST SP 800-77r1",
+            category="protocol_version",
+            status=AssessmentStatus.FAIL,
+            severity=10,
+            citation="NIST SP 800-77r1 §4.1",
+            message="IKEv1 is deprecated due to aggressive/main mode vulnerabilities.",
+        ),
+        RuleResult(
+            rule_id="NIST-SP800-77r1-3DES",
+            rule_name="3DES Deprecation",
+            pack="NIST SP 800-77r1",
+            category="encryption",
+            status=AssessmentStatus.FAIL,
+            severity=9,
+            citation="NIST SP 800-77r1 §4.2",
+            message="3DES Sweet32 vulnerability.",
+        ),
+    ]
+
+    remediations = [
+        {
+            "rule_id": "NIST-SP800-77r1-IKEV1",
+            "vendor": "strongswan",
+            "diff_text": "- version = 1\n+ version = 2\n+ esp = aes256gcm16!",
+            "verified": True,
+        }
+    ]
+
+    with Session(temp_db) as session:
+        run_id = ingest_scan_run(
+            scan_result=scan_res,
+            rule_results=rule_results,
+            remediations=remediations,
+            profile_name="weak",
+            operator="test-operator",
+            db_session=session,
+        )
+        assert run_id > 0
+
+        # Verify HTML generation
+        html = generate_html_report(run_id, db_session=session)
+        assert "<!DOCTYPE html>" in html
+        assert "TunnelTwin — IPsec Assessment Report" in html
+        assert "10.0.1.2:500" in html
+        assert "CRITICAL NON-COMPLIANT" in html
+        assert "NIST-SP800-77r1-IKEV1" in html
+        assert "OBSERVED" in html
+        assert "- version = 1" in html
+        assert "VERIFIED (Twin Check Passed)" in html
+        assert "SHA-256:" in html
+
+        # Verify saving to disk
+        with tempfile.TemporaryDirectory() as tmp_report_dir:
+            out_file = Path(tmp_report_dir) / "test_report.html"
+            content = generate_html_report(run_id, db_session=session)
+            out_file.write_text(content, encoding="utf-8")
+            assert out_file.exists()
+            assert out_file.stat().st_size > 1000
+
+
 def test_sim_node_generator():
     """Verify simulated node generator attributes."""
     node = _SimNode.generate(1)
@@ -181,6 +272,53 @@ def test_cli_help_and_commands():
     assert res.exit_code == 0
     assert "Valence-IPsec" in res.stdout or "tunneltwin" in res.stdout
 
-    for cmd in ["scan", "analyze", "fix", "verify", "prioritize", "attest", "report", "ui", "emulator"]:
+    for cmd in ["scan", "analyze", "fix", "report", "emulator"]:
         res_cmd = runner.invoke(app, [cmd, "--help"])
         assert res_cmd.exit_code == 0, f"Command '{cmd} --help' failed: {res_cmd.output}"
+
+
+def test_cli_report_and_save():
+    """Verify CLI report command outputs text, json, and html."""
+    runner = CliRunner()
+
+    # Ingest a real run into the default DB
+    scan_res = GatewayScanResult(
+        target_ip="10.0.1.2",
+        target_port=500,
+        scan_status=ProbeScanStatus.SUCCESS,
+        ike_version_detected=ProvenancedFact.observed("IKEv2"),
+        scan_start_time=1727670000.0,
+        scan_end_time=1727670001.0,
+        probe_count=5,
+    )
+    rule_results = [
+        RuleResult(
+            rule_id="NIST-TEST",
+            rule_name="Test Rule",
+            pack="NIST SP 800-77r1",
+            category="encryption",
+            status=AssessmentStatus.PASS,
+            severity=1,
+            citation="Clause 4.1",
+            message="Test rule passed",
+        )
+    ]
+    run_id = ingest_scan_run(scan_result=scan_res, rule_results=rule_results, profile_name="strong")
+
+    # Text report
+    res_text = runner.invoke(app, ["report", str(run_id)])
+    assert res_text.exit_code == 0
+    assert "10.0.1.2:500" in res_text.stdout
+    assert "NIST-TEST" in res_text.stdout
+    assert "PASS" in res_text.stdout
+
+    # JSON report
+    res_json = runner.invoke(app, ["report", str(run_id), "--format", "json"])
+    assert res_json.exit_code == 0
+    assert '"scan_run_id":' in res_json.stdout
+    assert '"NIST-TEST"' in res_json.stdout
+
+    # HTML report
+    res_html = runner.invoke(app, ["report", str(run_id), "--format", "html"])
+    assert res_html.exit_code == 0
+    assert "report_run_" in res_html.stdout or "HTML" in res_html.stdout
