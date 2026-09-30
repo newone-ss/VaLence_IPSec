@@ -138,19 +138,19 @@ class _SimNode:
     @classmethod
     def generate(cls, index: int) -> _SimNode:
         ip = _random_ip()
-        profile = random.choices(_PROFILES, weights=_PROFILE_WEIGHTS, k=1)[0]
+        profile = random.choices(_PROFILES, weights=_PROFILE_WEIGHTS, k=1)[0]  # nosec B311
         return cls(
             index=index,
             ip=ip,
             cidr=_cidr24(ip),
-            port=random.choices([500, 4500], weights=[0.70, 0.30], k=1)[0],
-            vendor=random.choice(_VENDORS),
-            owner=random.choice(_OWNER_POOL),
+            port=random.choices([500, 4500], weights=[0.70, 0.30], k=1)[0],  # nosec B311
+            vendor=random.choice(_VENDORS),  # nosec B311
+            owner=random.choice(_OWNER_POOL),  # nosec B311
             profile=profile,
-            latency_ms=random.uniform(_LATENCY_MIN_MS, _LATENCY_MAX_MS),
-            responded=random.random() < 0.82,
-            nat_traversal=random.random() < 0.40,
-            inferred_confidence=round(random.uniform(0.55, 0.99), 4),
+            latency_ms=random.uniform(_LATENCY_MIN_MS, _LATENCY_MAX_MS),  # nosec B311
+            responded=random.random() < 0.82,  # nosec B311
+            nat_traversal=random.random() < 0.40,  # nosec B311
+            inferred_confidence=round(random.uniform(0.55, 0.99), 4),  # nosec B311
         )
 
 
@@ -160,12 +160,12 @@ class _SimNode:
 
 
 def _random_ip() -> str:
-    block = random.randint(0, 2)
+    block = random.randint(0, 2)  # nosec B311
     if block == 0:
-        return f"10.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 254)}"
+        return f"10.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 254)}"  # nosec B311
     elif block == 1:
-        return f"172.{random.randint(16, 31)}.{random.randint(0, 255)}.{random.randint(1, 254)}"
-    return f"192.168.{random.randint(0, 255)}.{random.randint(1, 254)}"
+        return f"172.{random.randint(16, 31)}.{random.randint(0, 255)}.{random.randint(1, 254)}"  # nosec B311
+    return f"192.168.{random.randint(0, 255)}.{random.randint(1, 254)}"  # nosec B311
 
 
 def _cidr24(ip: str) -> str:

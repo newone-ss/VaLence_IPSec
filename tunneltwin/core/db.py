@@ -101,7 +101,7 @@ class SealType(str, enum.Enum):
 # ---------------------------------------------------------------------------
 
 
-class Target(SQLModel, table=True):
+class Target(SQLModel, table=True):  # type: ignore[call-arg]
     """
     Authorized scan target.
 
@@ -123,7 +123,7 @@ class Target(SQLModel, table=True):
     gateways: list["Gateway"] = Relationship(back_populates="target")
 
 
-class ScanRun(SQLModel, table=True):
+class ScanRun(SQLModel, table=True):  # type: ignore[call-arg]
     """
     A discrete scan session (probe, parse, or capture) against a Target.
     """
@@ -149,7 +149,7 @@ class ScanRun(SQLModel, table=True):
     seals: list["Seal"] = Relationship(back_populates="scan_run")
 
 
-class Gateway(SQLModel, table=True):
+class Gateway(SQLModel, table=True):  # type: ignore[call-arg]
     """
     Observed or parsed IKE gateway endpoint discovered during a ScanRun.
     """
@@ -175,7 +175,7 @@ class Gateway(SQLModel, table=True):
     facts: list["Fact"] = Relationship(back_populates="gateway")
 
 
-class Fact(SQLModel, table=True):
+class Fact(SQLModel, table=True):  # type: ignore[call-arg]
     """
     Atomic provenance-tagged datum.
 
@@ -205,7 +205,7 @@ class Fact(SQLModel, table=True):
     gateway: Gateway | None = Relationship(back_populates="facts")
 
 
-class Finding(SQLModel, table=True):
+class Finding(SQLModel, table=True):  # type: ignore[call-arg]
     """
     Compliance rule evaluation result for a single parameter or connection within a ScanRun.
 
@@ -231,7 +231,7 @@ class Finding(SQLModel, table=True):
     remediations: list["Remediation"] = Relationship(back_populates="finding")
 
 
-class Remediation(SQLModel, table=True):
+class Remediation(SQLModel, table=True):  # type: ignore[call-arg]
     """
     Vendor-specific configuration diff / patch proposed or applied for a Finding.
     """
@@ -253,7 +253,7 @@ class Remediation(SQLModel, table=True):
     verification_seal: Optional["Seal"] = Relationship()
 
 
-class Capture(SQLModel, table=True):
+class Capture(SQLModel, table=True):  # type: ignore[call-arg]
     """
     PCAP file or live-capture session record linked to a ScanRun.
     """
@@ -275,7 +275,7 @@ class Capture(SQLModel, table=True):
     scan_run: ScanRun | None = Relationship(back_populates="captures")
 
 
-class Model(SQLModel, table=True):
+class Model(SQLModel, table=True):  # type: ignore[call-arg]
     """
     ML inference model artifact record (parameter inference engine).
     """
@@ -296,7 +296,7 @@ class Model(SQLModel, table=True):
     notes: str = Field(default="")
 
 
-class Seal(SQLModel, table=True):
+class Seal(SQLModel, table=True):  # type: ignore[call-arg]
     """
     Merkle audit-trail entry.
 
