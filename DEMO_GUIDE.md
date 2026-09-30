@@ -225,40 +225,59 @@ Asynchronously simulates 50 IPsec gateways across multiple IP subnets with reali
 #### 🗣️ What to say to the Judge:
 > *"In large organizations, security teams oversee hundreds or thousands of VPN endpoints. Our asynchronous engine can simulate and audit 50 enterprise nodes in less than a second, scaling smoothly across entire subnets."*
 
-### STEP 9: React + TypeScript Operations Console Dashboard
+### STEP 9: Full-Stack Integration (FastAPI Backend + React Frontend)
 
-#### 💻 Command to Run:
+#### 💻 1. Start the FastAPI Backend:
+Open Terminal 1:
 ```bash
-# Option A: Run directly via CLI launcher
-python -m tunneltwin.cli.main ui
+python -m uvicorn tunneltwin.api.app:app --host 127.0.0.1 --port 8000 --reload
+```
+- **Backend URL:** `http://127.0.0.1:8000`
+- **Interactive Swagger Docs:** `http://127.0.0.1:8000/docs` (Judges can test any API live in the browser)
 
-# Option B: Run via Vite development server
+#### 💻 2. Start the Frontend Dashboard:
+Open Terminal 2:
+```bash
 cd frontend
 npm run dev
 ```
-*(Open `http://localhost:8501` or `http://localhost:5173` in your browser)*
+- **Frontend URL:** `http://localhost:5173`
 
-#### ❓ Why use it?
-Shows the full, modern, interactive web operations console with dark/light mode toggle and dedicated operational viewpoints:
-- **CISO View:** Strategic security posture, fleet exposure, critical findings, and executive risk triage.
-- **Auditor View:** Evidence provenance, compliance controls, signed attestations, and audit trail traceability.
-- **Admin View:** Gateway inventory, live probe queue, PCAP traffic analysis, and service settings.
-
-#### 🗣️ What to say to the Judge:
-> *"Beyond our terminal engine, we built a modern React + TypeScript operations console designed for enterprise deployment. It features three tailored personas—CISO, Auditor, and Admin—providing role-relevant views from executive risk down to raw cryptographic evidence."*
+#### ❓ What to show the Judges:
+1. **Interactive Probe Execution:**
+   - In the frontend, navigate to **Live probe** (`/probe`).
+   - Enter target: `10.0.1.2`, port: `500`, profile: `IKE negotiation discovery`.
+   - Click **Run live probe**.
+   - Notice that the **backend terminal immediately logs**:
+     ```text
+     INFO: 127.0.0.1:... - "POST /api/probe HTTP/1.1" 200 OK
+     ```
+   - The frontend updates live with:
+     - State: `COMPLETED`
+     - Discovered: `IKEv1`
+     - Identified Vendor: `cisco_asa`
+     - Security Findings: `12 Flagged`
+     - Accepted Transforms: `3DES-CBC`, `HMAC-SHA1`, `MODP-1024`
+2. **Fleet Inventory:**
+   - Navigate to **VPN fleet** (`/fleet`).
+   - The table automatically populates with all 113+ gateways from the SQLite database.
+3. **PCAP Analysis:**
+   - Navigate to **PCAP analysis** (`/analysis`).
+   - Select any sample PCAP file from `lab/captures/` and click **Start analysis**.
+   - The backend ingests the capture, extracts ESP statistics, and outputs RFC 4303 candidate ciphers with **94.2% confidence**.
 
 ---
 
 ## 🏆 Summary Checklist for Your Presentation
 
 - [ ] Mention the problem: Legacy, unhardened IPsec tunnels silently running in critical infrastructure.
-- [ ] Show **123 automated passing tests** (`pytest`).
+- [ ] Show **132 automated passing tests** (`pytest`).
 - [ ] Show the **Terminal & HTML Audit Reports** (`report 24`).
 - [ ] Show the **Automated Remediation Diff** (`fix 24`).
 - [ ] Perform the **Live Tamper Demonstration** (`verify 24` -> tamper 1 byte -> verify fail).
 - [ ] Present the **Signed Attestation Certificate** (`attest 24`).
 - [ ] Demonstrate **Fleet Scalability** (`emulator simulate -n 50`).
-- [ ] Showcase the **React + TypeScript Operations Console** (`tunneltwin ui` / `npm run dev`).
+- [ ] Showcase the **Live Backend & React Console** (`uvicorn` on `:8000` + `npm run dev` on `:5173`).
 
 *TunnelTwin / Valence-IPsec — Engineered for SIH 2026 / NTRO PS 26160.*
 
