@@ -52,3 +52,6 @@ frontend/dist/
 # Scratch directory
 scratch/
 
+# Local-only datasets
+data/
+
