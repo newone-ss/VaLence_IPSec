@@ -24,6 +24,7 @@
 | **FEAT-014** | Libreswan Remediation Generator & Cross-Daemon Interoperability Proof | Phase 4 | **COMPLETED** | Verified (PASS) |
 | **FEAT-015** | Machine Learning PCAP Classifier & Parameter Inference Engine | Phase 5 | **COMPLETED** | Verified (PASS) |
 | **FEAT-016** | SQLite WAL Fleet Store, Ingestion Engine & HTML Reporting | Phase 6 | **COMPLETED** | Verified (PASS) |
+| **FEAT-017** | Cryptographic Trust Layer, Ed25519 Merkle Attestation & Tamper Verification | Phase 7 | **COMPLETED** | Verified (PASS) |
 
 
 ---
@@ -445,6 +446,38 @@
   ```
 - **Test Suite**: 6/6 tests in `tests/test_phase6_fleet_store.py` passed; 116/116 total suite passed.
 - **CI/CD Pipeline**: GitHub Actions commit `141db01` passed 7/7 jobs on `main`.
+
+
+---
+
+## FEAT-017: Cryptographic Trust Layer, Ed25519 Merkle Attestation & Tamper Verification
+
+### 1. Scope & Objectives
+- Construct a deterministic binary Merkle tree over canonical serialized findings and remediations of a ScanRun.
+- Sign the Merkle root using an asymmetric Ed25519 digital signature keypair (`cryptography`).
+- Implement the `tunneltwin verify <scan_run_id>` CLI command:
+  1. Recompute leaf digests and Merkle root from current database records.
+  2. Validate equality against the stored Merkle seal.
+  3. Verify the Ed25519 digital signature against the signer public key.
+  4. Detect any 1-byte database tampering and fail with non-zero exit code.
+- Implement the `tunneltwin attest <scan_run_id>` command:
+  - Generate a formal Markdown compliance attestation certificate with cited standards (NIST SP 800-77r1, NSA CNSA Suite 2.0), findings, verified remediations, Merkle root, and Ed25519 signature.
+
+### 2. Implementation Approach
+- Authored `tunneltwin/seal/merkle.py` (`serialize_finding`, `serialize_remediation`, `compute_merkle_root`).
+- Authored `tunneltwin/seal/signer.py` (`get_or_create_keypair`, `sign_merkle_root`, `verify_signature`).
+- Authored `tunneltwin/seal/engine.py` (`seal_scan_run`, `verify_scan_run`).
+- Authored `tunneltwin/seal/attestation.py` (`generate_attestation_certificate`, `save_attestation_certificate`).
+- Updated `tunneltwin/cli/main.py` (`verify` and `attest` commands).
+- Authored `tests/test_phase7_seal.py` (7 unit and integration tests).
+
+### 3. Verification Log
+- **Untouched Verification**: ScanRun #24 verified with status `VALID` and valid Ed25519 signature.
+- **Tamper Detection**: Deliberately altered 1 byte in database finding (`detail += '!'`); `tunneltwin verify 24` caught the mismatch and exited with code 1 (`status: TAMPERED`).
+- **Restoration**: Restored the original byte; `tunneltwin verify 24` returned to `VALID` (exit code 0).
+- **Attestation Output**: Generated `reports/attestation_run_24.md` and sidecar `reports/seal_run_24.json`.
+- **Test Suite**: 7/7 tests passed in `tests/test_phase7_seal.py`; 123/123 tests passed project-wide.
+
 
 
 

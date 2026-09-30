@@ -288,7 +288,7 @@ Before any pull request or phase handover is certified, verify each negative con
 | **Phase 4** | Multi-Daemon Diversity & Behavioral Fingerprinting | `python lab/run_phase4_multi_daemon.py` / `pytest tests/test_phase4_matrix.py` | Libreswan in netns; behavioral fingerprinting (0.95 conf); cross-daemon tunnel & ping verified (0% loss); re-scan cleared | **PASSED** |
 | **Phase 5** | ML Inference Engine & Parameter Inference | `pytest tests/test_phase5_ml.py -v` | Statistical feature extraction, Random Forest / GBDT inference, confidence scoring $\in [0.0, 1.0]$ | **PASSED** |
 | **Phase 6** | Fleet Store, Ingestion Engine & HTML Reporting | `pytest tests/test_phase6_fleet_store.py -v` | SQLite WAL fleet store, live scan ingestion, terminal reports, standalone HTML report, scale emulator | **PASSED** |
-| **Phase 7** | Trust Layer, Signed Attestations & Reports | `pytest tests/test_seal.py -v` | Merkle tree Ed25519 signing, tampering detection, PDF reports, compliance attestation certificate | PENDING |
+| **Phase 7** | Trust Layer, Signed Attestations & Reports | `pytest tests/test_phase7_seal.py -v` | Merkle tree Ed25519 signing, verify tampering detection (exit 1), Markdown compliance certificate | **PASSED** |
 | **Phase 8** | End-to-End Evaluation & Demonstration | `pytest tests/ -v && sudo bash lab/run_matrix.sh` | 100% test pass rate across all modules | PENDING |
 
 ---

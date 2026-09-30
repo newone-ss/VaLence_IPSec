@@ -9,7 +9,6 @@ the complete provenance graph into the SQLite database.
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -28,8 +27,6 @@ from tunneltwin.core.db import (
     RemediationStatus,
     ScanRun,
     ScanStatus,
-    Seal,
-    SealType,
     Target,
     engine,
     init_db,
@@ -233,33 +230,10 @@ def ingest_scan_run(
 
             session.flush()
 
-        # 7. Cryptographic Merkle Seal for Run Integrity
-        finding_digests = [f"{f.rule_id}:{f.status}:{f.severity}" for f in finding_map.values()]
-        payload = json.dumps(
-            {
-                "scan_run_id": scan_run.id,
-                "target": scan_result.target_ip,
-                "profile": profile_name,
-                "status": scan_run.status.value,
-                "findings": sorted(finding_digests),
-                "timestamp": _now().isoformat(),
-            },
-            sort_keys=True,
-        )
-        run_hash = _sha256(payload)
+        # 7. Cryptographic Ed25519-Signed Merkle Tree Seal
+        from tunneltwin.seal.engine import seal_scan_run
 
-        seal = Seal(
-            scan_run_id=scan_run.id,
-            seal_type=SealType.SCAN,
-            entity_type="scan_run",
-            entity_id=scan_run.id,
-            sha256_hash=run_hash,
-            merkle_root=run_hash,
-            signed_by=operator,
-            sealed_at=_now(),
-            notes=f"Integrity seal for scan_run #{scan_run.id} ({profile_name})",
-        )
-        session.add(seal)
+        seal_scan_run(scan_run_id=int(scan_run.id or 0), operator=operator, db_session=session)
         session.commit()
         session.refresh(scan_run)
         return int(scan_run.id or 0)

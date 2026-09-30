@@ -337,37 +337,50 @@ def fix(
 
 @app.command()
 def verify(
-    scan_run_id: int = typer.Argument(..., help="Original ScanRun ID to re-verify after remediation."),
-    re_scan: bool = typer.Option(True, "--re-scan/--no-re-scan", help="Trigger a new active scan before verifying."),
-    remediation_ids: list[int] = typer.Option([], "--remediation-id", help="Specific Remediation IDs to verify."),
+    scan_run_id: int = typer.Argument(..., help="ScanRun ID whose cryptographic Merkle seal to verify."),
+    key_dir: str = typer.Option(".keys", "--key-dir", "-k", help="Directory containing Ed25519 keys."),
 ) -> None:
     """
-    Re-assess a target after remediation to confirm fix effectiveness.
+    Recompute Merkle tree from stored findings/remediations and verify Ed25519 signature.
     """
     init_db()
-    with Session(engine) as session:
-        scan_run = session.get(ScanRun, scan_run_id)
-        if not scan_run:
-            console.print(f"[bold red]Error: ScanRun #{scan_run_id} not found in fleet store.[/bold red]")
-            raise typer.Exit(code=1)
-        findings = session.exec(select(Finding).where(Finding.scan_run_id == scan_run_id)).all()
-        finding_ids = {f.id for f in findings if f.id is not None}
-        remediations = [r for r in session.exec(select(Remediation)).all() if r.finding_id in finding_ids]
+    from tunneltwin.seal.engine import verify_scan_run
+
+    report = verify_scan_run(scan_run_id=scan_run_id, key_dir=Path(key_dir))
+
+    if report.is_valid:
         console.print(
             Panel(
-                f"[bold white]Target ScanRun:[/bold white] #{scan_run_id}\n"
-                f"[bold white]Remediations Tracked:[/bold white] {len(remediations)}",
-                title="[bold cyan]Remediation Verification[/bold cyan]",
+                f"[bold green][+] VALID -- Cryptographic Merkle Seal & Ed25519 Signature Verified[/bold green]\n\n"
+                f"[bold white]ScanRun ID:[/bold white]          #{report.scan_run_id}\n"
+                f"[bold white]Integrity Status:[/bold white]    [bold green]{report.status}[/bold green]\n"
+                f"[bold white]Stored Merkle Root:[/bold white]  {report.stored_merkle_root}\n"
+                f"[bold white]Recomputed Root:[/bold white]     {report.recomputed_merkle_root}\n"
+                f"[bold white]Ed25519 Signature:[/bold white]   [bold green]VALID[/bold green]\n"
+                f"[bold white]Signer Public Key:[/bold white]   {report.public_key or 'Embedded in Seal'}\n"
+                f"[bold white]Artifacts Verified:[/bold white]  {report.leaf_count} findings & remediations\n\n"
+                f"[dim]{report.details}[/dim]",
+                title="[bold green]Trust Layer -- Merkle Seal Verification[/bold green]",
                 box=box.ROUNDED,
             )
         )
-        for rem in remediations:
-            status_str = (
-                "[bold green]VERIFIED[/bold green]"
-                if rem.status.value == "VERIFIED"
-                else "[bold yellow]PROPOSED[/bold yellow]"
+    else:
+        status_color = "red" if report.status in ("TAMPERED", "INVALID_SIGNATURE") else "yellow"
+        console.print(
+            Panel(
+                f"[bold red][!] {report.status} -- Cryptographic Integrity Verification Failed[/bold red]\n\n"
+                f"[bold white]ScanRun ID:[/bold white]          #{report.scan_run_id}\n"
+                f"[bold white]Integrity Status:[/bold white]    [{status_color}]{report.status}[/{status_color}]\n"
+                f"[bold white]Stored Merkle Root:[/bold white]  {report.stored_merkle_root or 'None'}\n"
+                f"[bold white]Recomputed Root:[/bold white]     {report.recomputed_merkle_root or 'None'}\n"
+                f"[bold white]Signature Valid:[/bold white]     {'YES' if report.signature_valid else 'NO'}\n"
+                f"[bold white]Artifacts Checked:[/bold white]   {report.leaf_count}\n\n"
+                f"[bold red]{report.details}[/bold red]",
+                title="[bold red]Trust Layer -- Tamper Detection Alert[/bold red]",
+                box=box.ROUNDED,
             )
-            console.print(f"* Remediation #{rem.id} ({rem.vendor}): {status_str}")
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command()
@@ -418,32 +431,52 @@ def prioritize(
 @app.command()
 def attest(
     scan_run_id: int = typer.Argument(..., help="ScanRun ID to attest and seal."),
-    sign: bool = typer.Option(False, "--sign", help="Cryptographically sign the Merkle receipt."),
-    key_path: str = typer.Option("", "--key", help="Path to Ed25519 private key for signing."),
-    operator: str = typer.Option("", "--operator", help="Operator identity to embed in the Seal."),
-    output: str = typer.Option("-", "--output", "-o", help="Path to write the JSON receipt; '-' for stdout."),
+    sign: bool = typer.Option(True, "--sign/--no-sign", help="Cryptographically sign the Merkle receipt with Ed25519."),
+    key_dir: str = typer.Option(".keys", "--key-dir", "-k", help="Directory containing Ed25519 keys."),
+    operator: str = typer.Option("tunneltwin-operator", "--operator", help="Operator identity to embed in the Seal."),
+    output: str = typer.Option(
+        "-", "--output", "-o", help="Path to write the certificate or receipt; '-' for default/stdout."
+    ),
+    cert: bool = typer.Option(True, "--cert/--no-cert", help="Generate Markdown compliance attestation certificate."),
 ) -> None:
     """
-    Seal the current ScanRun into the Merkle audit trail.
+    Seal the ScanRun into the Merkle audit trail and generate signed compliance attestation certificate.
     """
     init_db()
-    with Session(engine) as session:
-        seals = session.exec(select(Seal).where(Seal.scan_run_id == scan_run_id)).all()
-        if not seals:
-            console.print(f"[bold yellow]No existing seal for ScanRun #{scan_run_id}.[/bold yellow]")
-            return
-        seal = seals[-1]
-        receipt = {
-            "scan_run_id": scan_run_id,
-            "merkle_root": seal.sha256_hash,
-            "seal_type": seal.seal_type.value,
-            "signed_by": seal.signed_by,
-            "timestamp": seal.sealed_at.isoformat(),
-        }
+    from tunneltwin.seal.attestation import generate_attestation_certificate, save_attestation_certificate
+    from tunneltwin.seal.engine import seal_scan_run
+
+    # 1. Compute and sign Merkle seal
+    receipt = seal_scan_run(scan_run_id=scan_run_id, operator=operator, key_dir=Path(key_dir))
+
+    # 2. Output certificate or JSON receipt
+    if cert:
+        cert_content = generate_attestation_certificate(scan_run_id)
         if output == "-":
-            console.print(json.dumps(receipt, indent=2))
+            saved_cert = save_attestation_certificate(scan_run_id)
+            console.print(
+                f"[bold green][+] Signed Compliance Attestation generated: "
+                f"[underline]{saved_cert.resolve()}[/underline][/bold green]"
+            )
+            console.print(
+                Panel(
+                    cert_content,
+                    title=f"Compliance Attestation Certificate -- ScanRun #{scan_run_id}",
+                    box=box.ROUNDED,
+                )
+            )
         else:
-            Path(output).write_text(json.dumps(receipt, indent=2), encoding="utf-8")
+            out_p = Path(output)
+            out_p.parent.mkdir(parents=True, exist_ok=True)
+            out_p.write_text(cert_content, encoding="utf-8")
+            console.print(
+                f"[bold green][+] Compliance Attestation certificate written to: {out_p.resolve()}[/bold green]"
+            )
+    else:
+        if output == "-":
+            console.print(json.dumps(receipt.to_dict(), indent=2))
+        else:
+            Path(output).write_text(json.dumps(receipt.to_dict(), indent=2), encoding="utf-8")
             console.print(f"[bold green][+] Seal receipt written to: {output}[/bold green]")
 
 

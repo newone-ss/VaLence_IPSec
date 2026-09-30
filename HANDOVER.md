@@ -6,9 +6,9 @@
 
 ## 1. Current Operational State
 
-- **Active Phase**: Phase 6 Complete — Fleet Store & Interfaces (SQLite WAL, Ingestion, CLI & HTML Reports)
+- **Active Phase**: Phase 7 Complete — Trust Layer & Signed Attestation (Ed25519 Merkle Attestation & Tamper Verification)
 - **Target Deadline**: 30 September 2026
-- **Current Objective**: Phase 6 Fleet Store and Interfaces (SQLite WAL mode database, SQLModel schema, automated scan & compliance rule ingestion engine, rich terminal reporting, standalone zero-dependency HTML assessment report, scale emulator) is 100% complete and verified against live strongSwan charon daemon in Linux network namespaces. Total test suite: 116 passing tests, 100% clean lint/format, 100% clean mypy, all 7 GitHub Actions CI jobs green on `main`. Ready for Phase 7 (Trust Layer & Signed Attestation).
+- **Current Objective**: Phase 7 Trust Layer and Signed Attestation (deterministic SHA-256 binary Merkle tree, Ed25519 digital signing, `tunneltwin verify <run_id>` tamper-detection CLI command, deterministic Markdown compliance attestation certificate) is 100% complete and verified against real scan runs. Proved live: untouched data reports VALID; single-byte tampering in DB reports TAMPERED; restoration returns to VALID. 123 passing tests, 100% clean lint/format, 100% clean mypy.
 - **Environment**: Host Windows 11 with WSL2 Ubuntu (`Ubuntu-26.04`), Linux Kernel 6.6.87.2-microsoft-standard-WSL2, full root privileges for netns and IPsec kernel operations.
 
 ---
@@ -138,7 +138,7 @@
 | **Phase 4** | Multi-Daemon Diversity & Behavioral Fingerprinting | Libreswan in netns; behavioral fingerprinting via payload quirks (0.95 conf); cross-daemon tunnel & re-scan verified; 16/16 tests pass | **PASSED (Live Netns Multi-Daemon Verified: scan -> fingerprint -> fix -> cross-daemon tunnel -> re-scan cleared)** |
 | **Phase 5** | Deep-Path PCAP & Wire ML Classifier | Dependency-free PCAP/PCAPNG, RFC 4303 filter, ESP feature extractor, IKE retransmit de-dup (unique_attempt_count=1), LightGBM/TreeSHAP models, netem robustness table (clean vs. impaired); 13/13 tests pass | **PASSED (24 real PCAPs + 20 netem PCAPs + Models + TreeSHAP)** |
 | **Phase 6** | Fleet Store, Ingestion Engine & HTML Reporting | SQLite WAL fleet store, live scan ingestion, terminal reports, standalone HTML report, scale emulator; 116 tests pass, 100% green CI | **PASSED (Live Netns Weak Scan -> DB Ingest -> CLI Report -> Standalone HTML Report)** |
-| **Phase 7** | Trust Layer, Signed Attestation & Reports | Merkle tree over results, Ed25519-signed; verify command detecting byte tampering; Jinja2+WeasyPrint PDF reports; Signed Compliance Attestation certificate | PENDING |
+| **Phase 7** | Trust Layer, Signed Attestation & Reports | Merkle tree over results, Ed25519-signed; verify command detecting byte tampering; deterministic Markdown Compliance Attestation certificate | **PASSED (Real Run 24 Merkle Sealed -> Ed25519 Signed -> Verified VALID -> 1-Byte Tamper Detected -> Attestation Generated)** |
 | **Phase 8** | End-to-End Evaluation & Demonstration | Full automated test suite across all 4 lab profiles, compliance validation, remediation diffs, zero errors | PENDING |
 
 

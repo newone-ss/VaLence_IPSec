@@ -38,3 +38,8 @@ venv/
 *.db-shm
 *.sqlite3
 reports/*.html
+reports/*.json
+!reports/seal_run_24.json
+.keys/
+*.key
+*.pem

@@ -1,0 +1,11 @@
+{
+  "scan_run_id": 24,
+  "merkle_root": "dee02dc46929c089a5cb0c6ceacf36654f80ec13f95404782e16361baa6dfcf4",
+  "signature": "6b89d14fa5dc26921ed563fe72064248e6faaebed9b6b664e6f969798ab7a0e122fd66630bf52622c13eb1f24cb350edd5789a2cd05e7f86cd2a9c2f139b370b",
+  "public_key": "b0b11d0f1becc2b0ab650586e3642000a9e01ea975c1cb1170921963ae5c196c",
+  "signed_by": "tunneltwin-operator",
+  "leaf_count": 18,
+  "findings_count": 17,
+  "remediations_count": 1,
+  "sealed_at": "2026-09-30T07:24:57.065809+00:00"
+}
