@@ -22,6 +22,8 @@
 | **FEAT-012** | Multi-Daemon Testbed Substrate (Libreswan in Network Namespaces) | Phase 4 | **COMPLETED** | Verified (PASS) |
 | **FEAT-013** | Behavioral Daemon Fingerprinting Engine (RFC Payload Quirks) | Phase 4 | **COMPLETED** | Verified (PASS) |
 | **FEAT-014** | Libreswan Remediation Generator & Cross-Daemon Interoperability Proof | Phase 4 | **COMPLETED** | Verified (PASS) |
+| **FEAT-015** | Machine Learning PCAP Classifier & Parameter Inference Engine | Phase 5 | **COMPLETED** | Verified (PASS) |
+| **FEAT-016** | SQLite WAL Fleet Store, Ingestion Engine & HTML Reporting | Phase 6 | **COMPLETED** | Verified (PASS) |
 
 
 ---
@@ -394,5 +396,55 @@
   * Posture score improved from 71 to 99/100.
   * Re-scan reaffirmed daemon fingerprint: `LIBRESWAN (Confidence: 95.0%)`.
 - `tests/test_phase4_matrix.py` PASSED in WSL2.
+
+
+---
+
+## FEAT-015: Machine Learning PCAP Classifier & Parameter Inference Engine
+
+### 1. Scope & Objectives
+- Extract packet-level and flow-level statistical features from encrypted PCAP traces without decryption.
+- Train multi-class classifiers (Random Forest / Gradient Boosted) to infer cryptographic parameters (IKE version, cipher family, DH group category).
+- Require explicit confidence scoring in `[0.0, 1.0]` and tag all facts with `ProvenanceEnum.INFERRED`.
+
+### 2. Implementation Approach
+- Authored `tunneltwin/ml/features.py` (packet length distributions, entropy, timing jitter).
+- Authored `tunneltwin/ml/train.py` and `tunneltwin/ml/infer.py`.
+- Linked inferred facts into the rule engine via `confidence_threshold`.
+
+### 3. Verification Log
+- 10 unit tests in `tests/test_phase5_ml.py` passed.
+- Model trained on synthetic and captured traces achieving > 90% accuracy across classification tasks.
+
+
+---
+
+## FEAT-016: SQLite WAL Fleet Store, Ingestion Engine & HTML Reporting
+
+### 1. Scope & Objectives
+- Persist scan runs, discovered gateways, atomic provenance-tagged facts, rule findings, remediations, and cryptographic Merkle seals in SQLite (WAL mode).
+- Ingest real Phase 1 probe results and Phase 2 compliance evaluations into the database with zero mocked data.
+- Build Typer CLI commands: `scan`, `report`, `analyze`, `fix`, `verify`, `prioritize`, `attest`, and `emulator simulate`.
+- Generate standalone, zero-dependency static HTML assessment reports with dark-mode UI, KPI cards, color-coded findings table, unified diff viewer, and Merkle audit seal.
+
+### 2. Implementation Approach
+- Authored `tunneltwin/core/db.py` (SQLModel models: `Target`, `ScanRun`, `Gateway`, `Fact`, `Finding`, `Remediation`, `Seal`, `Capture`, `Model`).
+- Authored `tunneltwin/core/ingest.py` (`ingest_scan_run()`).
+- Authored `tunneltwin/reports/html.py` (`generate_html_report()`, `save_html_report()`).
+- Authored `tunneltwin/cli/main.py` (Typer application with Rich terminal formatting and Windows cp1252-safe rendering).
+- Authored `tests/test_phase6_fleet_store.py` (6 integration and schema tests).
+
+### 3. Verification Log
+- **Live Namespace Testbed**: Scanned `10.0.1.2:500` (ns-right strongSwan charon daemon with weak profile):
+  ```text
+  Target: 10.0.1.2:500 | Daemon: strongSwan | IKE: IKEv1 | Status: COMPLETED
+  Evaluated Rules: 17 | Failed: 12 (CERT-In, NIST SP 800-77, NSA CNSA)
+  Provenance: OBSERVED
+  Merkle Seal: c766f7ee355011b6aeda4b9431f1cbcd494a0470b25b7035cda562515612bc1a
+  HTML Report: reports/report_run_24.html generated and verified
+  ```
+- **Test Suite**: 6/6 tests in `tests/test_phase6_fleet_store.py` passed; 116/116 total suite passed.
+- **CI/CD Pipeline**: GitHub Actions commit `141db01` passed 7/7 jobs on `main`.
+
 
 

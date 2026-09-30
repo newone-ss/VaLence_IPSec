@@ -286,10 +286,9 @@ Before any pull request or phase handover is certified, verify each negative con
 | **Phase 2** | Rule Engine & Evidence Model | `pytest tests/test_rules_engine.py -v` | Distinct scores across 4 profiles; at least 1 cited finding per profile; CANNOT_ASSESS invariant | **PASSED** |
 | **Phase 3** | Automated Remediation & Twin Check | `python lab/run_phase3_twin.py` / `pytest tests/test_phase3_matrix.py` | Baseline findings reproduced -> config remediated -> tunnel verified on real output -> re-scan confirms findings cleared | **PASSED** |
 | **Phase 4** | Multi-Daemon Diversity & Behavioral Fingerprinting | `python lab/run_phase4_multi_daemon.py` / `pytest tests/test_phase4_matrix.py` | Libreswan in netns; behavioral fingerprinting (0.95 conf); cross-daemon tunnel & ping verified (0% loss); re-scan cleared | **PASSED** |
-| **Phase 5** | Passive PCAP/Live Capture Analyzer | `pytest tests/test_capture.py -v` | Live/file PCAP parsed; weak crypto & SPI mismatches flagged | PENDING |
-| **Phase 5** | ML Inference Engine & Confidence Tagging | `pytest tests/test_ml.py -v` | Confidence scores $\in [0.0, 1.0]$ with reasoning strings | PENDING |
-| **Phase 6** | Cryptographic Seal & Integrity Verification | `pytest tests/test_seal.py -v` | Merkle tree root hash reproducible; receipts verify | PENDING |
-| **Phase 7** | API, CLI, and Web Dashboard | `pytest tests/test_api.py -v` & UI smoke | API endpoints return 200; Web UI renders without console errors | PENDING |
+| **Phase 5** | ML Inference Engine & Parameter Inference | `pytest tests/test_phase5_ml.py -v` | Statistical feature extraction, Random Forest / GBDT inference, confidence scoring $\in [0.0, 1.0]$ | **PASSED** |
+| **Phase 6** | Fleet Store, Ingestion Engine & HTML Reporting | `pytest tests/test_phase6_fleet_store.py -v` | SQLite WAL fleet store, live scan ingestion, terminal reports, standalone HTML report, scale emulator | **PASSED** |
+| **Phase 7** | Trust Layer, Signed Attestations & Reports | `pytest tests/test_seal.py -v` | Merkle tree Ed25519 signing, tampering detection, PDF reports, compliance attestation certificate | PENDING |
 | **Phase 8** | End-to-End Evaluation & Demonstration | `pytest tests/ -v && sudo bash lab/run_matrix.sh` | 100% test pass rate across all modules | PENDING |
 
 ---
