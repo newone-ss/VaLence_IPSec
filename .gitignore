@@ -33,3 +33,7 @@ venv/
 *.pid
 *.vici
 *.ctl
+*.db
+*.db-wal
+*.db-shm
+*.sqlite3
