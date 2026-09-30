@@ -16,6 +16,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 # On Windows platforms, ensure stdout and stderr handle UTF-8 / replacement safely
 if sys.platform == "win32":
@@ -484,13 +485,39 @@ def attest(
 def ui(
     host: str = typer.Option("127.0.0.1", "--host", help="Bind address for the web dashboard."),
     port: int = typer.Option(8501, "--port", "-p", help="TCP port for the web dashboard."),
-    reload: bool = typer.Option(False, "--reload", help="Enable hot-reload for development."),
+    serve: bool = typer.Option(True, "--serve/--no-serve", help="Serve the built frontend if available."),
 ) -> None:
     """
     Launch the Valence-IPsec web dashboard (tunneltwin.ui).
     """
-    console.print(f"[bold cyan]TunnelTwin UI endpoint configured at http://{host}:{port}[/bold cyan]")
+    dist_dir = Path("frontend/dist")
+    console.print(f"[bold cyan]TunnelTwin UI Dashboard: http://{host}:{port}[/bold cyan]")
+    console.print("[dim]For development with hot-reload: cd frontend && npm run dev[/dim]")
     console.print("[dim]Use 'tunneltwin report <id> --format html' for standalone static reports.[/dim]")
+
+    if serve and dist_dir.is_dir() and (dist_dir / "index.html").exists():
+        import http.server
+        import socketserver
+
+        class SPAHandler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, request: Any, client_address: Any, server: Any) -> None:
+                super().__init__(request, client_address, server, directory=str(dist_dir))
+
+            def do_GET(self) -> None:
+                path = (dist_dir / self.path.lstrip("/")).resolve()
+                if not path.is_file():
+                    self.path = "/index.html"
+                super().do_GET()
+
+        console.print(
+            f"[bold green][+] Serving production dashboard from {dist_dir} at http://{host}:{port}[/bold green]"
+        )
+        console.print("[dim]Press Ctrl+C to stop the dashboard server.[/dim]")
+        with socketserver.TCPServer((host, port), SPAHandler) as httpd:
+            try:
+                httpd.serve_forever()
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Dashboard server stopped.[/yellow]")
 
 
 # ---------------------------------------------------------------------------

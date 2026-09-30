@@ -225,6 +225,28 @@ Asynchronously simulates 50 IPsec gateways across multiple IP subnets with reali
 #### 🗣️ What to say to the Judge:
 > *"In large organizations, security teams oversee hundreds or thousands of VPN endpoints. Our asynchronous engine can simulate and audit 50 enterprise nodes in less than a second, scaling smoothly across entire subnets."*
 
+### STEP 9: React + TypeScript Operations Console Dashboard
+
+#### 💻 Command to Run:
+```bash
+# Option A: Run directly via CLI launcher
+python -m tunneltwin.cli.main ui
+
+# Option B: Run via Vite development server
+cd frontend
+npm run dev
+```
+*(Open `http://localhost:8501` or `http://localhost:5173` in your browser)*
+
+#### ❓ Why use it?
+Shows the full, modern, interactive web operations console with dark/light mode toggle and dedicated operational viewpoints:
+- **CISO View:** Strategic security posture, fleet exposure, critical findings, and executive risk triage.
+- **Auditor View:** Evidence provenance, compliance controls, signed attestations, and audit trail traceability.
+- **Admin View:** Gateway inventory, live probe queue, PCAP traffic analysis, and service settings.
+
+#### 🗣️ What to say to the Judge:
+> *"Beyond our terminal engine, we built a modern React + TypeScript operations console designed for enterprise deployment. It features three tailored personas—CISO, Auditor, and Admin—providing role-relevant views from executive risk down to raw cryptographic evidence."*
+
 ---
 
 ## 🏆 Summary Checklist for Your Presentation
@@ -236,5 +258,7 @@ Asynchronously simulates 50 IPsec gateways across multiple IP subnets with reali
 - [ ] Perform the **Live Tamper Demonstration** (`verify 24` -> tamper 1 byte -> verify fail).
 - [ ] Present the **Signed Attestation Certificate** (`attest 24`).
 - [ ] Demonstrate **Fleet Scalability** (`emulator simulate -n 50`).
+- [ ] Showcase the **React + TypeScript Operations Console** (`tunneltwin ui` / `npm run dev`).
 
 *TunnelTwin / Valence-IPsec — Engineered for SIH 2026 / NTRO PS 26160.*
+
