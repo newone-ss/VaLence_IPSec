@@ -29,7 +29,6 @@ from tunneltwin.core.db import (  # noqa: E402
     Finding,
     FindingStatus,
     Gateway,
-    ProvenanceEnum,
     ScanRun,
     ScanStatus,
     Target,
@@ -46,7 +45,12 @@ def setup_api_database():
     with Session(engine) as session:
         run = session.get(ScanRun, 24)
         if not run:
-            target = Target(name="ci-test-target", ip_range="10.0.1.2/32")
+            target = Target(
+                ip_or_cidr="10.0.1.2/32",
+                owner="CI Test",
+                description="CI Test Target",
+                consent_verified=True,
+            )
             session.add(target)
             session.commit()
             session.refresh(target)
@@ -80,10 +84,8 @@ def setup_api_database():
                 severity="CRITICAL",
                 status=FindingStatus.FAIL,
                 parameter="ike_version",
-                expected="IKEv2",
-                observed="IKEv1",
-                provenance=ProvenanceEnum.OBSERVED,
-                detail="IKEv1 is deprecated",
+                detail="IKEv1 is deprecated per NIST SP 800-77r1",
+                evidence_refs="fact-1",
             )
             session.add(f1)
             session.commit()
