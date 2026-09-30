@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 pytest.importorskip("httpx")
+pytest.importorskip("multipart")
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlmodel import Session  # noqa: E402
