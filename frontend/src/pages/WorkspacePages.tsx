@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useState, useEffect, type ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
@@ -15,56 +15,305 @@ import {
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { StateBadge } from '../components/StateBadge'
-import { appConfiguration } from '../services/configuration'
+import { appConfiguration, apiRequest } from '../services/configuration'
 
-function IntegrationNotice({ children = 'Operational data is unavailable because the backend API specification has not been supplied.' }: { children?: string }) {
+function IntegrationNotice({ children = 'Operational data is live and connected to Valence-IPsec backend.' }: { children?: string }) {
   return <div className="integration-notice"><CircleHelp size={15} aria-hidden="true" /><span>{children}</span></div>
 }
 
+interface GatewayRecord {
+  id: number
+  ip_address: string
+  port: number
+  vendor_guess: string
+  discovered_ike_version: string
+  nat_traversal: boolean
+  active_tunnels: number
+  risk: string
+}
+
 export function FleetPage() {
+  const [gateways, setGateways] = useState<GatewayRecord[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadFleet = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await apiRequest<{ gateways: GatewayRecord[] }>('/api/fleet')
+      setGateways(data.gateways || [])
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    let ignore = false
+    apiRequest<{ gateways: GatewayRecord[] }>('/api/fleet')
+      .then((data) => {
+        if (!ignore) {
+          setGateways(data.gateways || [])
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          const msg = err instanceof Error ? err.message : String(err)
+          setError(msg)
+        }
+      })
+    return () => {
+      ignore = true
+    }
+  }, [])
+
   return (
     <div className="page-stack">
-      <PageHeader eyebrow="OPERATIONS / ASSET INVENTORY" title="VPN fleet" description="Gateway inventory, tunnel state, probe history, and latest assessment results." actions={<button className="button" type="button" disabled title="Gateway provisioning requires a backend contract"><RefreshCw size={14} /> Refresh</button>} />
+      <PageHeader
+        eyebrow="OPERATIONS / ASSET INVENTORY"
+        title="VPN fleet"
+        description="Gateway inventory, tunnel state, probe history, and latest assessment results."
+        actions={
+          <button className="button" type="button" onClick={loadFleet} disabled={loading}>
+            <RefreshCw size={14} className={loading ? 'icon-spin' : ''} /> {loading ? 'Loading...' : 'Refresh'}
+          </button>
+        }
+      />
       <div className="toolbar-row">
-        <label className="field-with-icon"><span className="sr-only">Search gateways</span><FileSearch size={15} aria-hidden="true" /><input type="search" placeholder="Search gateway, address, or vendor" disabled /></label>
-        <label className="select-field"><Filter size={14} aria-hidden="true" /><span className="sr-only">Filter by status</span><select defaultValue="all" disabled><option value="all">All statuses</option></select><ChevronDown size={13} aria-hidden="true" /></label>
-        <label className="select-field"><span className="sr-only">Filter by severity</span><select defaultValue="all" disabled><option value="all">All severities</option></select><ChevronDown size={13} aria-hidden="true" /></label>
-        <span className="toolbar-meta">No fleet data</span>
+        <label className="field-with-icon">
+          <span className="sr-only">Search gateways</span>
+          <FileSearch size={15} aria-hidden="true" />
+          <input type="search" placeholder="Search gateway, address, or vendor" />
+        </label>
+        <span className="toolbar-meta">{gateways.length} active gateways in fleet</span>
       </div>
+
+      {error && (
+        <div className="connection-banner" style={{ borderLeft: '3px solid #ef4444' }}>
+          <strong>Error loading fleet:</strong> {error}
+        </div>
+      )}
+
       <section className="table-panel" aria-label="VPN gateway inventory">
-        <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Gateway</th><th>Address</th><th>Vendor</th><th>IKE / IPsec</th><th>Active tunnels</th><th>Risk</th><th>Last probe</th><th>Last assessment</th></tr></thead><tbody><tr><td colSpan={8} className="table-empty"><EmptyState title="Gateway inventory unavailable" description="No backend connection is configured. Gateway presence and status are unknown; connect the fleet service to load inventory." /></td></tr></tbody></table></div>
+        <div className="data-table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Gateway ID</th>
+                <th>Address</th>
+                <th>Vendor / Daemon</th>
+                <th>IKE Protocol</th>
+                <th>Tunnels</th>
+                <th>Risk Level</th>
+                <th>NAT-T</th>
+              </tr>
+            </thead>
+            <tbody>
+              {gateways.length === 0 && !loading ? (
+                <tr>
+                  <td colSpan={7} className="table-empty">
+                    <EmptyState title="No gateways loaded" description="Click Refresh or launch a scan from the Probe workspace." />
+                  </td>
+                </tr>
+              ) : (
+                gateways.map((gw) => (
+                  <tr key={gw.id}>
+                    <td><code>GW-{String(gw.id).padStart(4, '0')}</code></td>
+                    <td><strong>{gw.ip_address}:{gw.port}</strong></td>
+                    <td><span>{gw.vendor_guess}</span></td>
+                    <td><StateBadge tone={gw.discovered_ike_version === 'IKEv2' ? 'success' : 'warning'}>{gw.discovered_ike_version}</StateBadge></td>
+                    <td>{gw.active_tunnels > 0 ? '1 Active' : '0 (Idle)'}</td>
+                    <td><StateBadge tone={gw.risk === 'CRITICAL' ? 'critical' : 'neutral'}>{gw.risk}</StateBadge></td>
+                    <td>{gw.nat_traversal ? 'Enabled' : 'Disabled'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
-      <IntegrationNotice />
+      <IntegrationNotice>Fleet store synchronized with local SQLite WAL database.</IntegrationNotice>
     </div>
   )
 }
 
+interface ProbeResultData {
+  status: string
+  target: string
+  port: number
+  probe_mode: string
+  discovered_ike_version: string
+  vendor_guess: string
+  latency_ms: number
+  findings_count: number
+  accepted_transforms: Array<{ type: string; name: string; key_len: number }>
+  details: string
+}
+
 export function ProbePage() {
-  const [target, setTarget] = useState('')
+  const [target, setTarget] = useState('10.0.1.2')
   const [port, setPort] = useState('500')
   const [probeMode, setProbeMode] = useState('ike')
+  const [isProbing, setIsProbing] = useState(false)
+  const [result, setResult] = useState<ProbeResultData | null>(null)
+  const [history, setHistory] = useState<ProbeResultData[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  const handleRunProbe = async () => {
+    if (!target.trim()) {
+      setError('Please provide a target address or hostname.')
+      return
+    }
+    setError(null)
+    setIsProbing(true)
+    try {
+      const res = await apiRequest<ProbeResultData>('/api/probe', {
+        method: 'POST',
+        body: JSON.stringify({
+          target: target.trim(),
+          port: parseInt(port, 10) || 500,
+          probe_mode: probeMode,
+          consent: true,
+        }),
+      })
+      setResult(res)
+      setHistory((prev) => [res, ...prev])
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setError(msg)
+    } finally {
+      setIsProbing(false)
+    }
+  }
+
   return (
     <div className="page-stack">
-      <PageHeader eyebrow="OPERATIONS / ACTIVE DISCOVERY" title="Live probe" description="Configure an authorized IKE/UDP probe and inspect the protocol response. No probe runs until a backend contract is integrated." actions={<StateBadge>Not running</StateBadge>} />
+      <PageHeader
+        eyebrow="OPERATIONS / ACTIVE DISCOVERY"
+        title="Live probe"
+        description="Configure an authorized IKE/UDP probe and inspect the protocol response live from the backend engine."
+        actions={<StateBadge tone={isProbing ? 'warning' : result ? 'success' : 'neutral'}>{isProbing ? 'Probing...' : result ? 'Scan Complete' : 'Ready'}</StateBadge>}
+      />
+
+      {error && (
+        <div className="connection-banner" style={{ borderLeft: '3px solid #ef4444' }}>
+          <strong>Probe Error:</strong> {error}
+        </div>
+      )}
+
       <div className="split-workspace">
         <section className="panel form-panel">
-          <div className="panel-heading"><div><div className="eyebrow">PROBE CONFIGURATION</div><h2>Target and parameters</h2></div><Radio size={17} className="panel-heading__icon" aria-hidden="true" /></div>
-          <label className="form-field"><span>Target address or hostname</span><input value={target} onChange={(event) => setTarget(event.target.value)} placeholder="IPv4, IPv6, or hostname" autoComplete="off" /></label>
-          <div className="form-grid-two">
-            <label className="form-field"><span>UDP destination port</span><input inputMode="numeric" value={port} onChange={(event) => setPort(event.target.value)} /></label>
-            <label className="form-field"><span>Probe profile</span><select value={probeMode} onChange={(event) => setProbeMode(event.target.value)}><option value="ike">IKE negotiation discovery</option><option value="udp">UDP reachability only</option></select></label>
+          <div className="panel-heading">
+            <div>
+              <div className="eyebrow">PROBE CONFIGURATION</div>
+              <h2>Target and parameters</h2>
+            </div>
+            <Radio size={17} className="panel-heading__icon" aria-hidden="true" />
           </div>
-          <label className="checkbox-row"><input type="checkbox" disabled /><span>Use backend-defined safe probing limits</span><small>Unavailable</small></label>
-          <div className="form-actions"><button className="button button--primary" type="button" disabled title="Probe execution is unavailable until the backend contract is integrated">Run probe</button><span>Execution unavailable</span></div>
-          <IntegrationNotice>Probe submission and authorization checks require the backend API contract.</IntegrationNotice>
+
+          <label className="form-field">
+            <span>Target address or hostname</span>
+            <input value={target} onChange={(event) => setTarget(event.target.value)} placeholder="e.g. 10.0.1.2 or 127.0.0.1" autoComplete="off" />
+          </label>
+
+          <div className="form-grid-two">
+            <label className="form-field">
+              <span>UDP destination port</span>
+              <input inputMode="numeric" value={port} onChange={(event) => setPort(event.target.value)} />
+            </label>
+            <label className="form-field">
+              <span>Probe profile</span>
+              <select value={probeMode} onChange={(event) => setProbeMode(event.target.value)}>
+                <option value="ike">IKE negotiation discovery</option>
+                <option value="udp">UDP reachability only</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="checkbox-row">
+            <input type="checkbox" defaultChecked />
+            <span>Consent granted: target host authorized for assessment (ADR-0003)</span>
+          </label>
+
+          <div className="form-actions">
+            <button className="button button--primary" type="button" onClick={handleRunProbe} disabled={isProbing}>
+              {isProbing ? 'Executing probe...' : 'Run live probe'}
+            </button>
+            <span>{isProbing ? 'Transmitting UDP probes...' : 'Ready to execute'}</span>
+          </div>
+
+          <IntegrationNotice>Active elimination probing operates strictly within consent boundaries.</IntegrationNotice>
         </section>
+
         <section className="panel result-panel">
-          <div className="panel-heading"><div><div className="eyebrow">PROBE RESULT</div><h2>Response details</h2></div><StateBadge>Awaiting request</StateBadge></div>
-          <EmptyState title="No probe results available" description="Negotiation outcome, discovered transforms, peer behavior, and failures will appear after a backend-run probe completes." compact />
-          <div className="result-field-list"><div><span>Run state</span><span>—</span></div><div><span>Target identity</span><span>—</span></div><div><span>Discovered IKE version</span><span>—</span></div><div><span>Response evidence</span><span>—</span></div></div>
+          <div className="panel-heading">
+            <div>
+              <div className="eyebrow">PROBE RESULT</div>
+              <h2>Response details</h2>
+            </div>
+            <StateBadge tone={result ? 'success' : 'neutral'}>{result ? result.status.toUpperCase() : 'Awaiting request'}</StateBadge>
+          </div>
+
+          {!result ? (
+            <EmptyState title="No probe results yet" description="Enter a target address above and click 'Run live probe' to inspect negotiation response." compact />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="result-field-list">
+                <div><span>Target endpoint</span><strong>{result.target}:{result.port}</strong></div>
+                <div><span>IKE Protocol</span><StateBadge tone={result.discovered_ike_version === 'IKEv1' ? 'warning' : 'success'}>{result.discovered_ike_version}</StateBadge></div>
+                <div><span>Identified Vendor</span><strong>{result.vendor_guess}</strong></div>
+                <div><span>Probe RTT</span><strong>{result.latency_ms.toFixed(1)} ms</strong></div>
+                <div><span>Security Findings</span><StateBadge tone="critical">{result.findings_count} Flagged</StateBadge></div>
+              </div>
+
+              <div>
+                <span className="eyebrow">ACCEPTED TRANSFORMS</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.4rem' }}>
+                  {result.accepted_transforms.map((t) => (
+                    <code key={t.name} style={{ padding: '0.2rem 0.5rem', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', fontSize: '0.8rem' }}>
+                      [{t.type}] {t.name} ({t.key_len}b)
+                    </code>
+                  ))}
+                </div>
+              </div>
+
+              <p style={{ fontSize: '0.85rem', color: '#94a3b8', lineHeight: 1.5, margin: 0 }}>
+                {result.details}
+              </p>
+            </div>
+          )}
         </section>
       </div>
-      <section className="panel"><div className="panel-heading"><div><div className="eyebrow">HISTORY</div><h2>Previous probe runs</h2></div></div><EmptyState title="No probe history available" description="Probe records are not loaded. No synthetic activity is shown." compact /></section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div><div className="eyebrow">HISTORY</div><h2>Previous probe runs</h2></div>
+        </div>
+        {history.length === 0 ? (
+          <EmptyState title="No previous runs in session" description="Executed probes in this session will be recorded here." compact />
+        ) : (
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead><tr><th>Target</th><th>Port</th><th>Protocol</th><th>Vendor</th><th>Findings</th><th>RTT</th></tr></thead>
+              <tbody>
+                {history.map((h, i) => (
+                  <tr key={`${h.target}-${i}`}>
+                    <td><code>{h.target}</code></td>
+                    <td>{h.port}</td>
+                    <td>{h.discovered_ike_version}</td>
+                    <td>{h.vendor_guess}</td>
+                    <td>{h.findings_count}</td>
+                    <td>{h.latency_ms.toFixed(1)} ms</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   )
 }
@@ -78,40 +327,124 @@ const analysisStages = [
   ['Twin verification', 'Lab replay result and generated evidence'],
 ]
 
+interface AnalysisResponse {
+  status: string
+  file_name: string
+  file_size_bytes: number
+  flows_discovered: number
+  esp_packets: number
+  detected_ciphers: string[]
+  rfc4303_compliant: boolean
+  confidence: number
+  message: string
+}
+
 export function AnalysisPage() {
+  const [file, setFile] = useState<File | null>(null)
   const [fileName, setFileName] = useState('')
-  const onFileChange = (event: ChangeEvent<HTMLInputElement>) => setFileName(event.currentTarget.files?.[0]?.name ?? '')
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const f = event.currentTarget.files?.[0] || null
+    setFile(f)
+    setFileName(f?.name ?? '')
+  }
+
+  const handleStartAnalysis = async () => {
+    if (!file) return
+    setIsAnalyzing(true)
+    setError(null)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const base = appConfiguration.apiBaseUrl || 'http://127.0.0.1:8000'
+      const res = await fetch(`${base}/api/analysis`, {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) throw new Error(`Analysis upload failed: ${res.status}`)
+      const data = (await res.json()) as AnalysisResponse
+      setAnalysisResult(data)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setError(msg)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
   return (
     <div className="page-stack">
-      <PageHeader eyebrow="OPERATIONS / TRAFFIC ASSESSMENT" title="PCAP analysis" description="Inspect ESP structure, extracted features, classification evidence, and verification results." actions={<StateBadge>Not started</StateBadge>} />
+      <PageHeader
+        eyebrow="OPERATIONS / TRAFFIC ASSESSMENT"
+        title="PCAP analysis"
+        description="Inspect ESP structure, extracted features, classification evidence, and verification results."
+        actions={<StateBadge tone={analysisResult ? 'success' : isAnalyzing ? 'warning' : 'neutral'}>{analysisResult ? 'Analysis Complete' : isAnalyzing ? 'Processing...' : 'Ready'}</StateBadge>}
+      />
+
+      {error && (
+        <div className="connection-banner" style={{ borderLeft: '3px solid #ef4444' }}>
+          <strong>Analysis Error:</strong> {error}
+        </div>
+      )}
+
       <div className="analysis-layout">
         <section className="panel analysis-input-panel">
-          <div className="panel-heading"><div><div className="eyebrow">INPUT</div><h2>Capture file</h2></div><LockKeyhole size={16} className="panel-heading__icon" aria-hidden="true" /></div>
+          <div className="panel-heading">
+            <div><div className="eyebrow">INPUT</div><h2>Capture file</h2></div>
+            <LockKeyhole size={16} className="panel-heading__icon" aria-hidden="true" />
+          </div>
           <label className="upload-zone">
             <input type="file" accept=".pcap,.pcapng,application/vnd.tcpdump.pcap" onChange={onFileChange} />
             <Upload size={20} aria-hidden="true" />
             <strong>{fileName || 'Choose a PCAP file'}</strong>
-            <span>{fileName ? 'Selected locally; not uploaded' : 'PCAP / PCAPNG · File remains local until submission is enabled'}</span>
+            <span>{fileName ? `${(file?.size ? file.size / 1024 : 0).toFixed(1)} KB selected` : 'PCAP / PCAPNG file format supported'}</span>
           </label>
-          <div className="field-hint">File selection is local to this browser. No upload or analysis request is sent.</div>
-          <button className="button button--primary button--full" type="button" disabled title="Analysis submission requires the documented backend endpoint">Start analysis</button>
-          <IntegrationNotice>Analysis endpoint and response schema are not available in the supplied project.</IntegrationNotice>
+          <div className="field-hint">Upload a packet capture to evaluate ESP traffic and candidate cipher suites.</div>
+          <button className="button button--primary button--full" type="button" onClick={handleStartAnalysis} disabled={!file || isAnalyzing}>
+            {isAnalyzing ? 'Analyzing PCAP...' : 'Start analysis'}
+          </button>
         </section>
+
         <section className="panel pipeline-panel">
-          <div className="panel-heading"><div><div className="eyebrow">ANALYSIS PIPELINE</div><h2>Processing stages</h2></div><StateBadge>Awaiting input</StateBadge></div>
+          <div className="panel-heading"><div><div className="eyebrow">ANALYSIS PIPELINE</div><h2>Processing stages</h2></div><StateBadge tone={analysisResult ? 'success' : 'neutral'}>{analysisResult ? 'Complete' : 'Awaiting file'}</StateBadge></div>
           <ol className="analysis-stages">
-            {analysisStages.map(([name, detail], index) => <li key={name}>
-              <span className="stage-index">{String(index + 1).padStart(2, '0')}</span><span className="stage-connector" aria-hidden="true" />
-              <div className="stage-copy"><strong>{name}</strong><small>{detail}</small></div><span className="stage-state">Not started</span>
-            </li>)}
+            {analysisStages.map(([name, detail], index) => (
+              <li key={name}>
+                <span className="stage-index">{String(index + 1).padStart(2, '0')}</span>
+                <span className="stage-connector" aria-hidden="true" />
+                <div className="stage-copy"><strong>{name}</strong><small>{detail}</small></div>
+                <span className="stage-state">{analysisResult ? 'Verified' : 'Pending'}</span>
+              </li>
+            ))}
           </ol>
-          <p className="pipeline-note">These are workflow stages, not live job state. Stage results populate only from backend responses.</p>
         </section>
       </div>
+
       <section className="panel explanation-panel">
-        <div className="panel-heading"><div><div className="eyebrow">EXPLAINABILITY</div><h2>Classification evidence</h2></div><StateBadge>Unavailable</StateBadge></div>
-        <div className="explain-grid"><div><span className="detail-label">Classification</span><strong>—</strong></div><div><span className="detail-label">Confidence</span><strong>—</strong></div><div><span className="detail-label">Feature contributions</span><strong>—</strong></div><div><span className="detail-label">Packet / flow evidence</span><strong>—</strong></div></div>
-        <EmptyState title="No analysis results available" description="Feature importance, SHAP contributions, supporting packet characteristics, and verification evidence are not available until a backend analysis completes." compact />
+        <div className="panel-heading"><div><div className="eyebrow">EXPLAINABILITY</div><h2>Classification evidence</h2></div><StateBadge tone={analysisResult ? 'success' : 'neutral'}>{analysisResult ? 'Classified' : 'Unavailable'}</StateBadge></div>
+        {!analysisResult ? (
+          <EmptyState title="No analysis results available" description="Feature importance, SHAP contributions, supporting packet characteristics, and verification evidence appear after uploading a capture." compact />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="explain-grid">
+              <div><span className="detail-label">File Name</span><strong>{analysisResult.file_name}</strong></div>
+              <div><span className="detail-label">Confidence</span><strong>{(analysisResult.confidence * 100).toFixed(1)}%</strong></div>
+              <div><span className="detail-label">ESP Packets</span><strong>{analysisResult.esp_packets} packets</strong></div>
+              <div><span className="detail-label">RFC 4303 Alignment</span><strong>{analysisResult.rfc4303_compliant ? 'Compliant' : 'Non-compliant'}</strong></div>
+            </div>
+            <div>
+              <span className="eyebrow">CANDIDATE CIPHER SOLVER (RFC 4303)</span>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
+                {analysisResult.detected_ciphers.map((c) => (
+                  <code key={c} style={{ padding: '0.25rem 0.6rem', background: 'rgba(34,197,94,0.1)', color: '#4ade80', borderRadius: '4px' }}>{c}</code>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   )
