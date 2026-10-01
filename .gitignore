@@ -55,3 +55,9 @@ scratch/
 # Local-only datasets
 data/
 
+# Local-only markdown documentation (retained locally, excluded from git/remote)
+/*.md
+!/README.md
+docs/**/*.md
+frontend/**/*.md
+reports/**/*.md
