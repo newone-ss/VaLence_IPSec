@@ -61,3 +61,6 @@ data/
 docs/**/*.md
 frontend/**/*.md
 reports/**/*.md
+
+# License excluded for hackathon submission
+LICENSE*

@@ -11,7 +11,6 @@
 [![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Type Checked: mypy](https://img.shields.io/badge/type--check-mypy-blue.svg)](https://mypy-lang.org/)
 [![Security: Bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 
 **AI-Powered IPsec VPN Protocol Analyzer, Cryptographic Risk Assessor & Signed Attestation Framework**  
 *Developed for Smart India Hackathon (SIH) 2026 — Problem Statement 26160*  
@@ -217,9 +216,3 @@ pytest tests/ -v
 - **Static Code Analysis**: 0 errors across 90 files via `ruff` and `mypy --ignore-missing-imports`.
 - **Security Audits**: Clean Bandit SAST audit (0 high/medium issues) and 0 known CVEs via `pip-audit`.
 - **CodeQL**: Automated GitHub CodeQL semantic security analysis passed.
-
----
-
-## 📄 License
-
-This project is licensed under the Apache License 2.0 — see the [LICENSE](LICENSE) file for details.
