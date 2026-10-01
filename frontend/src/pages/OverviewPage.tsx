@@ -5,6 +5,7 @@ import { ArrowRight, CircleOff, FilePlus2, ShieldCheck } from 'lucide-react'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { StateBadge } from '../components/StateBadge'
+import { appConfiguration } from '../services/configuration'
 
 type DashboardPerspective = 'CISO' | 'Auditor' | 'Admin'
 
@@ -45,14 +46,25 @@ export function OverviewPage() {
 
       <p className="perspective-disclaimer" id="perspective-disclaimer">Display perspective only. This selector does not authenticate users or change permissions.</p>
 
-      <section className="connection-banner" aria-label="Backend connection state">
-        <div className="connection-banner__icon"><CircleOff size={18} aria-hidden="true" /></div>
-        <div className="connection-banner__copy">
-          <strong>Backend contract unavailable</strong>
-          <p>No API specification or service URL is configured. Dashboard values, findings, and event history cannot be loaded.</p>
-        </div>
-        <Link className="text-link" to="/system">Review configuration <ArrowRight size={14} /></Link>
-      </section>
+      {appConfiguration.apiConfigured ? (
+        <section className="connection-banner" style={{ borderColor: 'rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.05)' }} aria-label="Backend connection state">
+          <div className="connection-banner__icon" style={{ color: '#22c55e' }}><ShieldCheck size={18} aria-hidden="true" /></div>
+          <div className="connection-banner__copy">
+            <strong style={{ color: '#4ade80' }}>Backend contract active &amp; connected</strong>
+            <p>Connected to Valence-IPsec API at {appConfiguration.apiBaseUrl}. Fleet store, live probing, and PCAP analysis operational.</p>
+          </div>
+          <Link className="text-link" to="/fleet">Explore fleet <ArrowRight size={14} /></Link>
+        </section>
+      ) : (
+        <section className="connection-banner" aria-label="Backend connection state">
+          <div className="connection-banner__icon"><CircleOff size={18} aria-hidden="true" /></div>
+          <div className="connection-banner__copy">
+            <strong>Backend contract unavailable</strong>
+            <p>No API specification or service URL is configured. Dashboard values, findings, and event history cannot be loaded.</p>
+          </div>
+          <Link className="text-link" to="/system">Review configuration <ArrowRight size={14} /></Link>
+        </section>
+      )}
 
       {perspective === 'CISO' && <CisoDashboard />}
       {perspective === 'Auditor' && <AuditorDashboard />}

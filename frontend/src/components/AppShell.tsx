@@ -170,7 +170,16 @@ export function AppShell() {
           <Outlet />
         </main>
         <footer className="app-footer">
-          <span><AlertTriangle size={13} aria-hidden="true" /> Backend contract not supplied — operational data is unavailable.</span>
+          <span>
+            {apiConfigured ? (
+              <span style={{ color: '#4ade80', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span className="service-dot service-dot--configured" />
+                Backend connected ({appConfiguration.apiBaseUrl}) — operational data active.
+              </span>
+            ) : (
+              <span><AlertTriangle size={13} aria-hidden="true" /> Backend contract not supplied — operational data is unavailable.</span>
+            )}
+          </span>
           <span className="footer-context"><span>Environment</span><strong>{appConfiguration.environment}</strong></span>
         </footer>
       </div>
