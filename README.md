@@ -1,4 +1,4 @@
-# Valence_IPSec (TunnelTwin)
+# Valence_IPSec
 
 <div align="center">
 
